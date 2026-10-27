@@ -1,116 +1,72 @@
-import { useEffect, useState, type FormEvent } from "react";
+import type { TermixApp } from "@termix-ssh/plugin-sdk/frontend";
+import "./host-icons.css";
+import { BADGE_ID, BADGE_ORDER, createHostIconBadge } from "./badge";
 import {
-  useTranslation,
-  type TabProps,
-  type TermixApp,
-} from "@termix-ssh/plugin-sdk/frontend";
+  ChangeIconMenuIcon,
+  MENU_ITEM_ID,
+  OVERLAY_ACTION_ID,
+  OVERLAY_SLOT,
+  canChangeIcon,
+  createChangeIconOverlay,
+  createPickerState,
+} from "./change-icon";
+import { createPreferences, createPreferencesSync } from "./preferences";
+import { RULES_FIELD_COMPONENT, RulesField } from "./rules-editor";
+import {
+  COLOR_FIELD_COMPONENT,
+  ColorField,
+  ICON_FIELD_COMPONENT,
+  IconField,
+  SIZE_FIELD_COMPONENT,
+  SizeField,
+} from "./settings";
 
-const TAB_ID = "hello-world";
-
-interface Note {
-  id: number;
-  text: string;
-  createdAt: string;
-}
-
-function HandIcon(props: { className?: string }) {
-  return (
-    <svg
-      {...props}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8" />
-      <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-6-2.4l-3.6-3.6a2 2 0 0 1 2.8-2.8L7 15" />
-    </svg>
-  );
-}
-
-function createTab(app: TermixApp) {
-  return function HelloWorldTab({ isVisible }: TabProps) {
-    const { t } = useTranslation();
-    const [greeting, setGreeting] = useState("");
-    const [notes, setNotes] = useState<Note[]>([]);
-    const [draft, setDraft] = useState("");
-    const [failed, setFailed] = useState(false);
-
-    const load = async () => {
-      try {
-        const { data } = await app.api.get<{ greeting: string; notes: Note[] }>(
-          "/notes",
-        );
-        setGreeting(data.greeting);
-        setNotes(data.notes);
-        setFailed(false);
-      } catch {
-        setFailed(true);
-      }
-    };
-
-    useEffect(() => {
-      if (isVisible) void load();
-    }, [isVisible]);
-
-    const add = async (event: FormEvent) => {
-      event.preventDefault();
-      if (!draft.trim()) return;
-      try {
-        await app.api.post("/notes", { text: draft });
-        setDraft("");
-      } catch {
-        setFailed(true);
-        return;
-      }
-      await load();
-    };
-
-    return (
-      <div className="flex flex-col gap-4 p-4">
-        <h2 className="text-lg font-semibold">{greeting}</h2>
-        <form onSubmit={add} className="flex gap-2">
-          <input
-            className="flex-1 border border-border bg-transparent px-2 py-1"
-            value={draft}
-            placeholder={t("tab.placeholder")}
-            onChange={(event) => setDraft(event.target.value)}
-          />
-          <button type="submit" className="border border-border px-3 py-1">
-            {t("tab.add")}
-          </button>
-        </form>
-        {failed && <p className="text-sm text-destructive">{t("tab.error")}</p>}
-        {notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("tab.empty")}</p>
-        ) : (
-          <ul className="flex flex-col gap-1">
-            {notes.map((note) => (
-              <li key={note.id} className="border-b border-border py-1">
-                {note.text}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    );
-  };
-}
+export const PREFERENCES_ACTION_ID = "host-icons.preferences";
 
 export function activate(app: TermixApp): void {
-  app.registerRailItem({
-    id: TAB_ID,
-    icon: HandIcon,
-    titleKey: "tab.title",
-    kind: "tab",
-    permission: "use",
+  app.registerSettingsComponent(ICON_FIELD_COMPONENT, IconField);
+  app.registerSettingsComponent(COLOR_FIELD_COMPONENT, ColorField);
+  app.registerSettingsComponent(RULES_FIELD_COMPONENT, RulesField);
+  app.registerSettingsComponent(SIZE_FIELD_COMPONENT, SizeField);
+
+  const preferences = createPreferences();
+  app.registerSlotContribution(OVERLAY_SLOT, {
+    actionId: PREFERENCES_ACTION_ID,
+    titleKey: "settings.user.position.label",
+    kind: "component",
+    component: createPreferencesSync(preferences),
   });
-  app.registerTab(TAB_ID, createTab(app), {
-    icon: HandIcon,
-    titleKey: "tab.title",
-    singleton: true,
-    hostless: true,
+  app.registerHostBadge({
+    id: BADGE_ID,
+    when: () => true,
+    component: createHostIconBadge(preferences),
+    order: BADGE_ORDER,
   });
+
+  const picker = createPickerState();
+  app.registerSlotContribution(OVERLAY_SLOT, {
+    actionId: OVERLAY_ACTION_ID,
+    titleKey: "menu.changeIcon",
+    kind: "component",
+    component: createChangeIconOverlay(picker, preferences),
+  });
+  app.registerHostContextMenuItem({
+    id: MENU_ITEM_ID,
+    titleKey: "menu.changeIcon",
+    icon: ChangeIconMenuIcon,
+    when: canChangeIcon,
+    run: (host) => picker.open(host.id),
+  });
+  app.registerPaletteEntry({
+    id: MENU_ITEM_ID,
+    titleKey: "menu.changeIcon",
+    icon: ChangeIconMenuIcon,
+    keywords: ["icon", "color"],
+    scope: "host",
+    when: (host) => host !== undefined && canChangeIcon(host),
+    run: (_shell, host) => {
+      if (host) picker.open(host.id);
+    },
+  });
+  app.onDispose(picker.close);
 }

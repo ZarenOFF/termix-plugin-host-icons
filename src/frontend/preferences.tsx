@@ -1,0 +1,154 @@
+import { useEffect, useMemo, useSyncExternalStore } from "react";
+import { useHosts, useSettings } from "@termix-ssh/plugin-sdk/frontend";
+import {
+  NO_RULES,
+  RULES_KEY,
+  activeRules,
+  resolveAppearance,
+  sameRuleLists,
+  type RuleList,
+} from "./rules";
+
+/** User setting key, as declared in manifest.json. */
+export const POSITION_KEY = "position";
+export const SKIP_EMPTY_SLOT_KEY = "skipEmptySlot";
+export const SIZE_KEY = "size";
+
+/** Icon size in percent, as the manifest's number field bounds it. */
+export const DEFAULT_SIZE = 100;
+export const MIN_SIZE = 50;
+export const MAX_SIZE = 150;
+
+/** host-icons.css scales every icon size and the large slot by this. */
+export const SCALE_PROPERTY = "--host-icons-scale";
+
+export function normalizeSize(value: unknown): number {
+  if (typeof value === "string" && value.trim() === "") return DEFAULT_SIZE;
+  const size = typeof value === "string" ? Number(value) : value;
+  if (typeof size !== "number" || !Number.isFinite(size)) return DEFAULT_SIZE;
+  return Math.min(MAX_SIZE, Math.max(MIN_SIZE, Math.round(size)));
+}
+
+export const ICON_POSITIONS = ["large", "small", "after"] as const;
+
+/**
+ * large: a big icon left of the host row, the height of the row.
+ * small: a small icon right before the host name.
+ * after: a small icon after the host name, where badges normally go.
+ */
+export type IconPosition = (typeof ICON_POSITIONS)[number];
+
+export const DEFAULT_POSITION: IconPosition = "large";
+
+export function normalizePosition(value: unknown): IconPosition {
+  return ICON_POSITIONS.includes(value as IconPosition)
+    ? (value as IconPosition)
+    : DEFAULT_POSITION;
+}
+
+/**
+ * What every host row needs to place and choose its icon, worked out once:
+ * the user's icon position, their rules, and whether any host has an icon at
+ * all. Each row asking useSettings itself would be one request per host.
+ */
+export interface IconLayout {
+  position: IconPosition;
+  /**
+   * Some host has an icon, its own or one a rule gives it. Large icons then
+   * keep an empty slot on hosts without one, so names line up; with no icons
+   * anywhere, rows stay as the layout draws them.
+   */
+  anyIcon: boolean;
+  /** The user turned the empty slot off: only hosts with an icon move over. */
+  skipEmptySlot: boolean;
+  /** Rules that can apply, one list per level, first match wins. */
+  rules: readonly RuleList[];
+}
+
+export interface Preferences {
+  get: () => IconLayout;
+  set: (next: IconLayout) => void;
+  subscribe: (listener: () => void) => () => void;
+}
+
+export function createPreferences(): Preferences {
+  let layout: IconLayout = {
+    position: DEFAULT_POSITION,
+    anyIcon: false,
+    skipEmptySlot: true,
+    rules: NO_RULES,
+  };
+  const listeners = new Set<() => void>();
+  return {
+    get: () => layout,
+    set: (next) => {
+      if (
+        next.position === layout.position &&
+        next.anyIcon === layout.anyIcon &&
+        next.skipEmptySlot === layout.skipEmptySlot &&
+        sameRuleLists(next.rules, layout.rules)
+      )
+        return;
+      layout = { ...next };
+      for (const listener of listeners) listener();
+    },
+    subscribe: (listener) => {
+      listeners.add(listener);
+      return () => listeners.delete(listener);
+    },
+  };
+}
+
+export function useIconLayout(preferences: Preferences): IconLayout {
+  return useSyncExternalStore(
+    preferences.subscribe,
+    preferences.get,
+    preferences.get,
+  );
+}
+
+/**
+ * Mounted once through the shell.overlay slot. useSettings reads again when
+ * the user saves a setting, and useHosts follows the host list, so rows
+ * follow both without a reload.
+ */
+export function createPreferencesSync(preferences: Preferences) {
+  return function HostIconsPreferences() {
+    const { values, loaded } = useSettings("user");
+    const { hosts } = useHosts();
+    const position = loaded
+      ? normalizePosition(values[POSITION_KEY])
+      : preferences.get().position;
+    const skipEmptySlot = loaded
+      ? values[SKIP_EMPTY_SLOT_KEY] !== false
+      : preferences.get().skipEmptySlot;
+    // Only the user's own rules for now. An admin's would be one more list.
+    const rulesJson = loaded ? JSON.stringify(values[RULES_KEY] ?? []) : null;
+    const userRules = useMemo(
+      () => (rulesJson === null ? null : activeRules(JSON.parse(rulesJson))),
+      [rulesJson],
+    );
+    const rules = useMemo(
+      () => (userRules ? [userRules] : preferences.get().rules),
+      [userRules],
+    );
+    const anyIcon = hosts.some(
+      (host) => resolveAppearance(host, rules).resolved !== null,
+    );
+    useEffect(() => {
+      preferences.set({ position, anyIcon, skipEmptySlot, rules });
+    }, [position, anyIcon, skipEmptySlot, rules]);
+    // The large icon's room is padding on the row's text column, which can't
+    // read a variable from the badge inside it, so the scale sits on the root.
+    const size = loaded ? normalizeSize(values[SIZE_KEY]) : null;
+    useEffect(() => {
+      if (size === null) return;
+      const root = document.documentElement.style;
+      root.setProperty(SCALE_PROPERTY, String(size / 100));
+      return () => {
+        root.removeProperty(SCALE_PROPERTY);
+      };
+    }, [size]);
+    return null;
+  };
+}

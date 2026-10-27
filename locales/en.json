@@ -1,27 +1,195 @@
 {
   "plugin": {
-    "name": "Hello World",
-    "description": "A minimal Termix plugin: one tab, one route, one setting and one table."
-  },
-  "tab": {
-    "title": "Hello World",
-    "empty": "No notes yet.",
-    "placeholder": "Write a note",
-    "add": "Add",
-    "error": "Could not load or save notes."
-  },
-  "permissions": {
-    "use": {
-      "title": "Use Hello World",
-      "description": "Open the Hello World tab and keep notes in it."
-    }
+    "name": "Host Icons",
+    "description": "Give each host in the Hosts list its own icon and color."
   },
   "settings": {
-    "admin": {
-      "greeting": {
-        "label": "Greeting",
-        "description": "Shown at the top of the Hello World tab."
+    "user": {
+      "position": {
+        "label": "Icon position",
+        "description": "Where host icons show in the Hosts list.",
+        "large": "Large, left of the host",
+        "small": "Small, before the name",
+        "after": "Small, after the name"
+      },
+      "size": {
+        "label": "Icon size",
+        "description": "How big host icons are in the Hosts list, from 50% to 150%.",
+        "unit": "%"
+      },
+      "skipEmptySlot": {
+        "label": "Indent only hosts with an icon",
+        "description": "With large icons, only hosts that have one move over. Turn this off to give hosts without an icon an empty space so all names line up."
+      },
+      "rules": {
+        "label": "Automatic icons",
+        "description": "Give hosts an icon or a color by tag or name. The first rule that applies wins; turn on Priority to replace the host's own icon."
+      }
+    },
+    "host": {
+      "icon": {
+        "label": "Icon",
+        "description": "Shown next to the host name in the Hosts list."
+      },
+      "color": {
+        "label": "Icon color",
+        "description": "Theme color follows the text color of the list."
       }
     }
+  },
+  "picker": {
+    "search": "Search icons",
+    "packIcons": "Icons",
+    "packBrands": "Brands",
+    "none": "No icon",
+    "empty": "No icons match.",
+    "themeColor": "Theme color",
+    "noIconPreview": "No icon",
+    "unknown": "This host has an icon this version does not know. It shows as {{fallback}} until you pick another one."
+  },
+  "rules": {
+    "empty": "No rules yet. Add one to give hosts an icon by tag or name.",
+    "add": "Add rule",
+    "matchTag": "Tag",
+    "matchName": "Name contains",
+    "valuePlaceholderTag": "Tag, for example prod",
+    "valuePlaceholderName": "Part of the name",
+    "valueLabel": "Rule {{n}} text",
+    "iconLabel": "Rule {{n}} icon",
+    "colorLabel": "Rule {{n}} color",
+    "delete": "Delete rule {{n}}",
+    "summary": {
+      "tag": "tag {{value}}",
+      "name": "name contains {{value}}"
+    },
+    "overrideLabel": "Rule {{n}} takes priority over the host's icon",
+    "colMatch": "Match",
+    "colText": "Text",
+    "colIcon": "Icon",
+    "colColor": "Color",
+    "colPriority": "Priority",
+    "priorityTip": "Replaces the host's own icon and defaults",
+    "matchLabel": "Rule {{n}} matches by",
+    "handleLabel": "Reorder rule {{n}}: drag, or hold Alt and press Up or Down",
+    "noIconTip": "No icon: only the color changes, the host keeps its own icon",
+    "hostOwnIcon": "Host's own icon",
+    "suggestions": "Existing tags"
+  },
+  "groups": {
+    "servers": "Servers and storage",
+    "network": "Network",
+    "devices": "Devices",
+    "security": "Security",
+    "development": "Development",
+    "other": "Other"
+  },
+  "brandGroups": {
+    "os": "Operating systems",
+    "virtualization": "Virtualization",
+    "containers": "Containers",
+    "cloud": "Cloud",
+    "web": "Web and runtimes",
+    "databases": "Databases, queues and storage",
+    "network": "Network",
+    "nas": "NAS and home",
+    "devops": "DevOps",
+    "other": "Other"
+  },
+  "icons": {
+    "server": "Server",
+    "server-cog": "Server settings",
+    "database": "Database",
+    "hard-drive": "Disk / NAS",
+    "container": "Container / Docker",
+    "box": "Virtual machine",
+    "boxes": "Cluster",
+    "layers": "Stack",
+    "cloud": "Cloud",
+    "cloud-cog": "Cloud service",
+    "cpu": "Processor",
+    "memory": "Memory",
+    "router": "Router",
+    "network": "Network / switch",
+    "ethernet": "Ethernet port",
+    "wifi": "Wi-Fi",
+    "globe": "Web",
+    "radio-tower": "Radio tower",
+    "monitor": "Desktop",
+    "laptop": "Laptop",
+    "smartphone": "Phone",
+    "tablet": "Tablet",
+    "tv": "TV / media",
+    "printer": "Printer",
+    "cctv": "Camera",
+    "gamepad": "Game console",
+    "house": "Home",
+    "shield": "Shield / firewall",
+    "shield-check": "Secured",
+    "lock": "Lock",
+    "key": "Key",
+    "fingerprint": "Fingerprint",
+    "terminal": "Terminal",
+    "code": "Code",
+    "git-branch": "Git",
+    "bug": "Bug / testing",
+    "flask": "Lab / staging",
+    "rocket": "Production",
+    "wrench": "Maintenance",
+    "gauge": "Monitoring",
+    "activity": "Activity",
+    "bot": "Bot",
+    "mail": "Mail",
+    "zap": "Power",
+    "flame": "Hot",
+    "star": "Star",
+    "flag": "Flag",
+    "building": "Office",
+    "database-backup": "Database backup",
+    "archive": "Archive",
+    "server-off": "Server offline",
+    "circuit-board": "Circuit board",
+    "microchip": "Microchip",
+    "cable": "Cable",
+    "waypoints": "Route",
+    "satellite": "Satellite",
+    "signal": "Signal",
+    "speaker": "Speaker",
+    "camera": "Camera",
+    "keyboard": "Keyboard",
+    "lightbulb": "Light",
+    "thermometer": "Temperature",
+    "fan": "Fan",
+    "shield-alert": "Shield alert",
+    "key-round": "Key",
+    "siren": "Alarm",
+    "braces": "Braces",
+    "package": "Package",
+    "workflow": "Pipeline",
+    "webhook": "Webhook",
+    "git-merge": "Merge",
+    "folder": "Folder",
+    "file-text": "Logs",
+    "clock": "Schedule",
+    "bell": "Alerts",
+    "users": "Team",
+    "music": "Music",
+    "heart": "Favorite"
+  },
+  "menu": {
+    "changeIcon": "Change icon"
+  },
+  "dialog": {
+    "title": "Icon for {{name}}",
+    "description": "Shown next to the host name in the Hosts list.",
+    "save": "Save",
+    "cancel": "Cancel",
+    "useDefault": "Use default",
+    "saved": "Icon saved",
+    "failed": "Could not save the icon",
+    "useDefaultIcon": "Use the default icon",
+    "useDefaultColor": "Use the default color",
+    "followsDefault": "Follows the default after saving",
+    "ruleNote": "Rule \"{{rule}}\" gives this host an icon while it has none.",
+    "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon or color shown for this host."
   }
 }

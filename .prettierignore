@@ -6,3 +6,5 @@ package-lock.json
 
 locales/translated
 migrations/snapshot.json
+
+src/frontend/brands.generated.ts

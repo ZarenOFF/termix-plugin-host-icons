@@ -1,13 +1,7 @@
-import type { Router } from "express";
 import type { PluginContext } from "@termix-ssh/plugin-sdk/backend";
-import { notes } from "./tables.js";
-import { registerRoutes } from "./routes.js";
 
-export async function activate(ctx: PluginContext) {
-  const notesTable = await ctx.db.define(notes);
-  registerRoutes(ctx.http.router<Router>(), ctx, notesTable);
-}
+// Host Icons has no server side work: the icon and color are host settings,
+// which core stores, validates and hands to the frontend with each host.
+export async function activate(_ctx: PluginContext) {}
 
-export async function deactivate() {
-  // Everything registered through ctx is disposed by core.
-}
+export async function deactivate() {}

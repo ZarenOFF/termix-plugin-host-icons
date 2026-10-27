@@ -1,0 +1,189 @@
+/**
+ * Writes src/frontend/brands.generated.ts from scripts/brands.mjs and the
+ * simple-icons and @tabler/icons packages (dev dependencies, never shipped:
+ * only the path data ends up in the bundle).
+ *
+ *   node scripts/generate-brands.mjs          write the file
+ *   node scripts/generate-brands.mjs --check  fail if the file is out of date
+ */
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { BRANDS } from "./brands.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+export const OUTPUT = path.join(ROOT, "src/frontend/brands.generated.ts");
+
+const SIMPLE_ICONS = path.join(ROOT, "node_modules/simple-icons");
+const TABLER = path.join(ROOT, "node_modules/@tabler/icons/icons");
+
+/** Tabler draws every icon on a 24x24 box; this path is only that box. */
+const TABLER_BOX = "M0 0h24v24H0z";
+const SHAPES_WE_CANNOT_DRAW = /<(circle|ellipse|rect|line|polyline|polygon)\b/;
+
+/**
+ * What a path may not carry itself. The plugin draws one element for the
+ * whole icon, with one fill or stroke set on it, so a path that brings its own
+ * would silently draw differently once its siblings are joined into one.
+ */
+const PATH_PAINT = /\s(fill|stroke|fill-rule|clip-rule|style|opacity)\s*=/i;
+
+export function pathsOf(svg, where) {
+  if (SHAPES_WE_CANNOT_DRAW.test(svg)) {
+    throw new Error(`${where} has shapes other than <path>`);
+  }
+  const paths = [];
+  for (const [tag] of svg.matchAll(/<path\b[^>]*>/g)) {
+    const d = /\sd="([^"]+)"/.exec(tag)?.[1].trim();
+    if (d === undefined) continue;
+    // Tabler's box is dropped, with the stroke="none" fill="none" it carries.
+    if (d === TABLER_BOX) continue;
+    const own = PATH_PAINT.exec(tag);
+    if (own) {
+      throw new Error(
+        `${where} has a path with its own ${own[1]}; joining its paths would change how it is drawn`,
+      );
+    }
+    paths.push(d);
+  }
+  return paths;
+}
+
+let simpleIconsData;
+function simpleIconsTitles() {
+  simpleIconsData ??= new Map(
+    JSON.parse(
+      fs.readFileSync(
+        path.join(SIMPLE_ICONS, "data/simple-icons.json"),
+        "utf8",
+      ),
+    ).map((icon) => [icon.slug, icon.title]),
+  );
+  return simpleIconsData;
+}
+
+function fromSimpleIcons(slug) {
+  const title = simpleIconsTitles().get(slug);
+  const file = path.join(SIMPLE_ICONS, "icons", `${slug}.svg`);
+  if (!title || !fs.existsSync(file)) {
+    throw new Error(`Simple Icons has no "${slug}"`);
+  }
+  const paths = pathsOf(fs.readFileSync(file, "utf8"), file);
+  if (paths.length !== 1) {
+    throw new Error(`${file} should hold one path, found ${paths.length}`);
+  }
+  return { title, d: paths[0], stroke: false };
+}
+
+function fromTabler(slug, title) {
+  const name = `brand-${slug}.svg`;
+  const filled = path.join(TABLER, "filled", name);
+  const outline = path.join(TABLER, "outline", name);
+  const stroke = !fs.existsSync(filled);
+  const file = stroke ? outline : filled;
+  if (!fs.existsSync(file)) throw new Error(`Tabler has no "brand-${slug}"`);
+  const paths = pathsOf(fs.readFileSync(file, "utf8"), file);
+  if (paths.length === 0) throw new Error(`${file} has no path`);
+  // One element is enough when the shapes share fill or stroke, which pathsOf
+  // checks. A filled icon with several paths may rely on how they overlap, so
+  // joining those is not safe either.
+  if (!stroke && paths.length > 1) {
+    throw new Error(
+      `${file} is filled and has ${paths.length} paths; it cannot be joined into one`,
+    );
+  }
+  return { title, d: paths.join(" "), stroke };
+}
+
+/** The curated list, resolved to what the plugin draws. */
+export function resolveBrands() {
+  const ids = new Set();
+  const groups = Object.keys(BRANDS);
+  const icons = [];
+  for (const group of groups) {
+    for (const entry of BRANDS[group]) {
+      const [slug, options = {}] = typeof entry === "string" ? [entry] : entry;
+      const id = `brand-${options.id ?? slug}`;
+      if (!/^brand(-[a-z0-9]+)+$/.test(id)) throw new Error(`Bad id "${id}"`);
+      if (ids.has(id)) throw new Error(`Duplicate id "${id}"`);
+      ids.add(id);
+      const source = options.tabler
+        ? fromTabler(slug, options.tabler)
+        : fromSimpleIcons(slug);
+      icons.push({
+        id,
+        title: source.title,
+        group,
+        keywords: options.keywords ?? [],
+        d: source.d,
+        stroke: source.stroke,
+      });
+    }
+  }
+  return { groups, icons };
+}
+
+function iconLine(icon) {
+  const fields = [
+    `id: ${JSON.stringify(icon.id)}`,
+    `title: ${JSON.stringify(icon.title)}`,
+    `group: ${JSON.stringify(icon.group)}`,
+  ];
+  if (icon.keywords.length) {
+    fields.push(`keywords: ${JSON.stringify(icon.keywords)}`);
+  }
+  if (icon.stroke) fields.push("stroke: true");
+  fields.push(`d: ${JSON.stringify(icon.d)}`);
+  return `  { ${fields.join(", ")} },`;
+}
+
+/** The text of the generated module. */
+export function generate() {
+  const { groups, icons } = resolveBrands();
+  return [
+    "// Generated by scripts/generate-brands.mjs from scripts/brands.mjs. Do not",
+    "// edit by hand: change the list and run `npm run brands`.",
+    "//",
+    "// Logo shapes are from Simple Icons (CC0) and Tabler icons (MIT), see",
+    "// NOTICE. Logos are trademarks of their owners.",
+    "",
+    'import type { BrandIconDef } from "./icons";',
+    "",
+    `export const BRAND_GROUPS = ${JSON.stringify(groups)} as const;`,
+    "",
+    "export type BrandGroup = (typeof BRAND_GROUPS)[number];",
+    "",
+    "export const BRAND_ICONS: readonly BrandIconDef[] = [",
+    ...icons.map(iconLine),
+    "];",
+    "",
+  ].join("\n");
+}
+
+const normalize = (text) => text.replace(/\r\n/g, "\n");
+
+/** True when the committed file matches what the list produces now. */
+export function isUpToDate() {
+  return (
+    fs.existsSync(OUTPUT) &&
+    normalize(fs.readFileSync(OUTPUT, "utf8")) === generate()
+  );
+}
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+) {
+  if (process.argv.includes("--check")) {
+    if (!isUpToDate()) {
+      console.error(
+        "src/frontend/brands.generated.ts is out of date. Run `npm run brands`.",
+      );
+      process.exit(1);
+    }
+    console.log("brands.generated.ts is up to date");
+  } else {
+    fs.writeFileSync(OUTPUT, generate());
+    console.log(`wrote ${path.relative(ROOT, OUTPUT)}`);
+  }
+}

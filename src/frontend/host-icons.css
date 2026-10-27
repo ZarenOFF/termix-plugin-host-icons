@@ -1,0 +1,75 @@
+/*
+ * Where the host icon badge sits in the Hosts list.
+ *
+ * Plugins can only add badges, and the Classic Layout draws them in the
+ * host name row after the name. These rules move only this plugin's own
+ * badge. The large icon also gives the row's text column room on the left,
+ * matched on the badge itself, so no other row is touched. If the layout's
+ * markup ever changes, the large selectors stop matching and the icon stays
+ * small before the name instead of covering the text.
+ */
+
+/*
+ * --host-icons-scale is the user's Icon size setting (1 = 100%), set on the
+ * root by preferences.tsx. Every size below is multiplied by it.
+ */
+[data-host-icon-position="small"] svg,
+[data-host-icon-position="after"] svg {
+  width: calc(0.875rem * var(--host-icons-scale, 1));
+  height: calc(0.875rem * var(--host-icons-scale, 1));
+}
+
+/* small, and large until the layout rules below apply */
+[data-host-icon-position="small"],
+[data-host-icon-position="large"] {
+  order: -1;
+}
+
+/* large: the text column of a row whose name row holds the icon */
+div:has(> [data-drag-label] > [data-host-icon-position="large"]) {
+  padding-left: calc(2.25rem * var(--host-icons-scale, 1));
+}
+
+/*
+ * The icon is placed against the name row, not the whole column: comfortable
+ * rows open the action tray below the name in the same column, and a box the
+ * height of the column would pull the icon down to its middle.
+ */
+[data-drag-label]:has(> [data-host-icon-position="large"]) {
+  position: relative;
+}
+
+[data-drag-label] > [data-host-icon-position="large"] {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-2.25rem * var(--host-icons-scale, 1));
+  width: calc(2.25rem * var(--host-icons-scale, 1));
+  justify-content: center;
+}
+
+/*
+ * With the address line (a span) under the name, center on both. The 3.5px
+ * gap and the 11px address line are Classic Layout's.
+ */
+[data-drag-label]:has(+ span) > [data-host-icon-position="large"] {
+  bottom: calc(-3.5px - 11px);
+}
+
+/* Taller than a bare name row; the row's own padding takes the overhang. */
+[data-drag-label] > [data-host-icon-position="large"] svg {
+  width: auto;
+  height: calc(1.375rem * var(--host-icons-scale, 1));
+  aspect-ratio: 1;
+}
+
+/*
+ * Termix blurs the whole app behind a dialog. Every hover in our icon grid
+ * then repaints over that blur, which made the Change icon dialog lag, so
+ * our dialog drops the blur. A plain dim is cheap, and without the blur
+ * Termix's 10% black is too faint, so it takes Termix's alert dialog dim.
+ */
+body:has([data-host-icons-dialog]) [data-slot="dialog-overlay"] {
+  backdrop-filter: none;
+  background-color: var(--overlay, rgb(0 0 0 / 0.5));
+}

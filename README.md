@@ -1,140 +1,77 @@
-<div align="center">
+# Host Icons
 
-<img src="https://termix.site/img/logo.svg" width="120" alt="Termix Logo" />
+A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in the Hosts list its own icon and color, so a database, a router and a Docker box are easy to tell apart at a glance.
 
-<h1>Termix Plugin Template</h1>
-
-<p>A starter template for building your own Termix plugin</p>
-
-</div>
-
-<br />
-
-## Overview
-
-[Termix](https://github.com/Termix-SSH/Termix) is self-hosted, plugin-based server management, and every feature outside the core is a plugin. This template is a small Hello World plugin you can copy to start your own. It has one of each thing most plugins need, set up the same way as the official plugins.
-
-<br />
+![The Hosts list with a large icon left of each host: a database, a server, pfSense, Proxmox and Windows logos](docs/img/host-list.png)
 
 ## Features
 
-- A tab opened from the sidebar
-- Two API routes behind a permission
-- An admin setting
-- A table with migrations for SQLite, PostgreSQL and MySQL
-- Backend and frontend tests
-- A release workflow that builds and publishes your plugin as a GitHub release, ready to submit to the [community registry](https://github.com/Termix-SSH/Termix-Registry)
+- An **Icon** and an **Icon color** field in the host editor, with a searchable picker of two packs: about 80 general icons (servers, storage, network gear, devices, security, development) and about 150 monochrome brand logos (Linux distributions, Proxmox, Docker, Kubernetes, databases, routers, NAS and more)
+- A large icon left of each host in the Hosts list, like in MobaXterm, or a small one before or after the name (**Icon position** in your settings)
+- Defaults for a whole folder, for a user or for the whole server: hosts follow the default until they pick their own icon
+- **Change icon** in the host's right-click menu and in the command palette for a quick change, with **Use default** to follow the folder default again
+- **Automatic icons:** rules that give hosts an icon or a color by tag or by name, in a table you reorder by dragging
+- **Icon size** from 50% to 150%
+- English and Russian
 
-<br />
+<p>
+  <img src="docs/img/change-icon.png" alt="The Change icon dialog with the Icons and Brands switch and the icon color" width="360">
+  <img src="docs/img/settings.png" alt="Host Icons settings: icon position, icon size and a table of automatic icon rules" width="480">
+</p>
 
-## Getting Started
+## Install
 
-You need Node 24 and a Termix server you are an admin on. The full guide is at [docs.termix.site/develop](https://docs.termix.site/develop).
+Once the plugin is listed in the community registry: in Termix open **Plugins**, turn on the community registry under **Registries**, then find Host Icons in **Browse** and install it.
 
-1. Click Use this template on GitHub to make your own repo, then clone it.
-2. In `manifest.json`, change `id`, `name`, `description`, `author`, `repository` and `docs`. The id is lowercase with dashes, like `my-plugin`. Then search the repo for `hello-world`, `hello_world` and `Hello World` and rename them to match: `package.json`, `locales/en.json`, the index name in `src/backend/tables.ts`, the API paths in `src/backend/routes.ts`, the tab id in `src/frontend/index.tsx` and the tests.
-3. Install the packages, then delete `migrations/` and write it again for your id:
+To install a build by hand, see [Development](#development).
 
-   ```bash
-   npm install
-   npm run migrations
-   ```
+## Use it
 
-4. In Termix, open Settings, then General, and turn on Plugin developer mode. Then make an API key under Settings, API keys.
-5. Build and install the plugin on your server. It rebuilds and reinstalls every time you save a file:
+- **One host:** edit the host, open the **Host Icons** section, pick an icon and, if you like, a color. Save the host.
+- **Quick change:** right-click a host in the Hosts list and choose **Change icon**.
+- **A whole folder:** set Icon and Icon color in the folder's host defaults. Every host in the folder that has no icon of its own follows it. **Use default** in the Change icon dialog sends a host back to following the default.
+- **By tag or name:** under Settings, Host Icons, add rules such as "tag prod gets a database icon". The first rule that applies wins, and a host's own icon wins over a rule unless the rule takes priority. See the [docs](docs/index.md).
+- **No icon:** pick **No icon**. **Theme color** makes the icon follow the text color.
 
-   ```bash
-   npx termix-plugin dev --server http://localhost:30001 --key tmx_your_key
-   ```
+## Limitations
 
-6. Run the tests and checks before you push:
+- **Plugins can only add badges to a host row, and the Classic Layout draws them after the host name.** Host Icons moves its own badge with CSS: before the name for the small icon, and for the large one it also gives the row's text a left margin. The rule only matches rows that hold this plugin's icon. It relies on the Classic Layout's markup, not on an API, so if a Classic Layout update changes that markup the large icon falls back to the small one before the name until Host Icons is updated.
+- With the large icon, only hosts that have an icon move over by default. Turn off **Indent only hosts with an icon** to give the others an empty space so all names line up.
+- An empty icon means "no icon", so a host can't opt out of an automatic icon except by picking an icon of its own, and nothing can opt out of a rule with **Priority** on.
+- The icon hides when **Plugin badges** is turned off under **Customize sidebar**, **Row details**.
+- The general icons come from [Lucide](https://lucide.dev), the icon set Termix already ships. The brand logos are bundled with the plugin and drawn in one color, so they follow the icon color, not the brand's own colors. A brand that is not in the pack has no logo; use a general icon instead.
+- Your own SVG or PNG icons are not supported yet.
+- People a host is shared with see the owner's icon. Only people who can edit the host can change it.
 
-   ```bash
-   npm test
-   npm run typecheck
-   npm run validate
-   npm run build
-   ```
+## Privacy
 
-7. Using an AI coding tool? It reads `AGENTS.md` (or `CLAUDE.md`), which points it to the full plugin guide that ships with the SDK. Keep the About this plugin section in `AGENTS.md` up to date.
+The plugin makes no network requests of its own and has no tracking or telemetry. Icons are drawn from the copy of Lucide inside Termix or from logo data bundled in the plugin, and the icon and color are stored as host settings by Termix itself. The only capability it asks for is `ui:surface`.
 
-8. Write your docs in `docs/`. `docs/index.md` is the page people see first. Settings, permissions, environment variables and the API reference are added for you from `manifest.json` and the `@openapi` comments on your routes.
+## Development
 
-When you change a table in `src/backend/tables.ts`, run `npm run migrations` to write the SQLite, PostgreSQL and MySQL migrations. `npm run pack` writes `<id>-<version>.tmxplug` of the built plugin, which you can install from a file in the Plugins tab while developer mode is on.
+You need Node 24. The full plugin guide ships with the SDK at `node_modules/@termix-ssh/plugin-sdk/PLUGIN-GUIDE.md`.
 
-## Releasing
+```bash
+npm install
+npm test
+npm run typecheck
+npm run validate
+npm run build
+npm run pack        # writes host-icons-<version>.tmxplug
+```
 
-Work happens on a `dev-X.Y.Z` branch made from `main`, named after the version it will ship as. `main` only changes when a release merges a dev branch into it.
+To try it on a Termix server (26.10 or newer) you are an admin on, turn on **Plugin developer mode** under **Settings**, **General**, make an API key under **Settings**, **API keys**, then run:
 
-Run the Release workflow by hand from the dev branch:
+```bash
+npx termix-plugin dev --server http://localhost:30001 --key tmx_your_key
+```
 
-- beta publishes `X.Y.Z-beta.N` (N counts up on its own). Termix only offers it to people who turned on Beta versions for this plugin. Run it as often as you like.
-- stable releases `X.Y.Z`, merges the dev branch into `main`, deletes the dev branch and removes that version's beta releases. Add a `## X.Y.Z` section to `CHANGELOG.md` first, it becomes the release notes.
-- overwrite releases the manifest version again from the current commit, replacing its files.
-- dry-run builds and packs without publishing anything.
+It builds, installs and reinstalls the plugin on every save. Reload the page to see frontend changes. You can also install the `.tmxplug` from **Plugins**, **Install from file**.
 
-No secrets are needed. The workflow records GitHub build provenance for the `.tmxplug` so the community registry can check where it was built. If a dev branch changes files in `.github/workflows`, add a `TERMIX_PAT` secret (a token with `repo` and `workflow` scopes) so the release can push it to `main`.
-
-## Submitting to the community registry
-
-Once a version is released, you can submit it to the [Termix community registry](https://github.com/Termix-SSH/Termix-Registry). The Release run's summary shows the `sha256` to put in your submission. Every version is reviewed by a person before it is listed. See the [guide](https://docs.termix.site/develop/community-registry).
-
-Once it is listed, admins who turn on the community registry in Plugins, Registries can install it from Browse.
-
-## Sponsors
-
-For a paid sponsor spot, email [mail@termix.site](mailto:mail@termix.site).
-
-<!-- SPONSORS:START -->
-
-<div align="center">
-
-<br />
-
-<a href="https://www.blacksmith.sh/">
-  <img src="https://termix.site/img/sponsors/blacksmith.svg" height="40" alt="Blacksmith" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://www.cloudflare.com/">
-  <img src="https://termix.site/img/sponsors/cloudflare.png" height="40" alt="Cloudflare" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://akamai.com/">
-  <img src="https://termix.site/img/sponsors/akamai.svg" height="40" alt="Akamai" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://aws.amazon.com/">
-  <img src="https://termix.site/img/sponsors/aws.png" height="40" alt="AWS" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://rackgenius.com/">
-  <img src="https://termix.site/img/sponsors/rackgenius.png" height="40" alt="Rack Genius" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://ginernet.com/">
-  <img src="https://termix.site/img/sponsors/ginernet.png" height="40" alt="Ginernet" />
-</a>
-&nbsp;&nbsp;&nbsp;
-<a href="https://www.hetzner.com/?mtm_campaign=termix&mtm_medium=referral&mtm_content=sponsoring_link">
-  <img src="https://termix.site/img/sponsors/hetzner.png" height="40" alt="Hetzner" />
-</a>
-
-</div>
-
-<!-- SPONSORS:END -->
-
-<br />
-
-## Support
-
-Bugs and ideas for the template go in this repo: [report a bug](https://github.com/Termix-SSH/Termix-Plugin-Template/issues/new?template=bug_report.yml) or [request a feature](https://github.com/Termix-SSH/Termix-Plugin-Template/issues/new?template=feature_request.yml).
-
-Problems with Termix itself (login, hosts, credentials, sharing, sync) go in the [Termix repo](https://github.com/Termix-SSH/Termix/issues/new/choose). Not sure where it goes? Open it there and it will be moved.
-
-Add as much detail as you can, in English if possible. For questions about building plugins, join the [Discord](https://discord.gg/jVQGdvHDrf) server.
-
-<br />
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
+
+The brand logos are from [Simple Icons](https://simpleicons.org) (CC0) and [Tabler Icons](https://tabler.io/icons) (MIT), and are trademarks of their owners. See [NOTICE](NOTICE).
