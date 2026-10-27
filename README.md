@@ -14,9 +14,9 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 - **Icon size** from 50% to 150%
 - English and Russian
 
-<p>
-  <img src="docs/img/change-icon.png" alt="The Change icon dialog with the Icons and Brands switch and the icon color" width="360">
-  <img src="docs/img/settings.png" alt="Host Icons settings: icon position, icon size and a table of automatic icon rules" width="480">
+<p align="center">
+  <img src="docs/img/change-icon.png" alt="The Change icon dialog with the Icons and Brands switch and the icon color" height="320">
+  <img src="docs/img/settings.png" alt="Host Icons settings: icon position, icon size and a table of automatic icon rules" height="320">
 </p>
 
 ## Install
