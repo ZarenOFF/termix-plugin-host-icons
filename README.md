@@ -2,7 +2,9 @@
 
 A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in the Hosts list its own icon and color, so a database, a router and a Docker box are easy to tell apart at a glance.
 
-![The Hosts list with a large icon left of each host: a database, a server, pfSense, Proxmox and Windows logos](docs/img/host-list.png)
+<p align="center">
+  <img src="docs/img/host-list.png" alt="The Hosts list with a large icon left of each host: a database, a server, pfSense, Proxmox and Windows logos" width="564">
+</p>
 
 ## Features
 
@@ -15,8 +17,11 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 - English and Russian
 
 <p align="center">
-  <img src="docs/img/change-icon.png" alt="The Change icon dialog with the Icons and Brands switch and the icon color" height="320">
-  <img src="docs/img/settings.png" alt="Host Icons settings: icon position, icon size and a table of automatic icon rules" height="320">
+  <img src="docs/img/change-icon.png" alt="The Change icon dialog with the Icons and Brands switch and the icon color" width="489">
+</p>
+
+<p align="center">
+  <img src="docs/img/settings.png" alt="Host Icons settings: icon position, icon size and a table of automatic icon rules" width="885">
 </p>
 
 ## Install
