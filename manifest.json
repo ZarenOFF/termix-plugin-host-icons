@@ -1,7 +1,7 @@
 {
   "id": "host-icons",
   "name": "Host Icons",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Give each host in the Hosts list its own icon and color.",
   "author": {
     "name": "ZarenOFF",
@@ -17,6 +17,8 @@
     "Optional icon color",
     "Set a default icon for a whole folder",
     "Large icon left of the host, or small before or after the name, at the size you like",
+    "Text icons: a short label such as DB or K8S, as a frame, a plate or plain text",
+    "Upload your own SVG or PNG icons to a library shared with everyone",
     "Automatic icons for hosts with a tag or a name you choose"
   ],
   "env": [],
@@ -24,8 +26,23 @@
     "termix": ">=26.10.0",
     "api": "^1.2"
   },
-  "capabilities": ["ui:surface"],
+  "capabilities": ["db:own", "network:serve", "ui:surface"],
   "contributes": {
+    "syncEntities": ["icons"],
+    "permissions": [
+      {
+        "name": "upload",
+        "titleKey": "permissions.upload.title",
+        "descriptionKey": "permissions.upload.description",
+        "defaultRoles": ["admin", "user"]
+      },
+      {
+        "name": "manage",
+        "titleKey": "permissions.manage.title",
+        "descriptionKey": "permissions.manage.description",
+        "defaultRoles": ["admin"]
+      }
+    ],
     "settings": {
       "user": [
         {

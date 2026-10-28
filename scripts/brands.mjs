@@ -7,6 +7,10 @@
  *   keywords  extra English words the search matches
  *   tabler    a title: take the logo from Tabler icons (brand-<slug>) instead,
  *             for brands Simple Icons does not carry
+ *   hidden    true: still generated, so a host that stores the id keeps its
+ *             logo, but the picker and search no longer offer it. For logos
+ *             that are the brand's name in lettering and unreadable when
+ *             small. Prefer a compact symbol from a pack if one exists.
  *
  * The stored id ("brand-ubuntu") is saved in host settings and belongs to
  * this plugin, not to either icon pack. Never change or remove one that has
@@ -37,11 +41,11 @@ export const BRANDS = {
     "slackware",
     "freebsd",
     "openbsd",
-    "netbsd",
+    ["netbsd", { hidden: true }],
     "truenas",
     ["apple", { keywords: ["mac"] }],
-    ["macos", { keywords: ["apple", "osx", "darwin"] }],
-    ["ios", { keywords: ["apple", "iphone", "ipad"] }],
+    ["macos", { keywords: ["apple", "osx", "darwin"], hidden: true }],
+    ["ios", { keywords: ["apple", "iphone", "ipad"], hidden: true }],
     "android",
     [
       "windows",
@@ -53,7 +57,7 @@ export const BRANDS = {
   ],
   virtualization: [
     ["proxmox", { keywords: ["pve", "lxc", "vm"] }],
-    ["vmware", { keywords: ["esxi", "vsphere", "vm"] }],
+    ["vmware", { keywords: ["esxi", "vsphere", "vm"], hidden: true }],
     ["qemu", { keywords: ["kvm", "vm"] }],
     ["virtualbox", { keywords: ["vbox", "vm"] }],
     "unraid",
@@ -96,11 +100,11 @@ export const BRANDS = {
     ["envoyproxy", { id: "envoy", keywords: ["proxy"] }],
     ["nodedotjs", { id: "nodejs", keywords: ["node", "javascript", "js"] }],
     ["php", { keywords: ["fpm"] }],
-    ["dotnet", { keywords: ["net", "csharp", "microsoft"] }],
+    ["dotnet", { keywords: ["net", "csharp", "microsoft"], hidden: true }],
   ],
   databases: [
     ["postgresql", { keywords: ["postgres", "pg", "sql"] }],
-    ["mysql", { keywords: ["sql"] }],
+    ["mysql", { tabler: "MySQL", keywords: ["sql"] }],
     ["mariadb", { keywords: ["sql"] }],
     ["mongodb", { keywords: ["mongo", "nosql"] }],
     ["redis", { keywords: ["cache", "valkey"] }],
@@ -121,14 +125,14 @@ export const BRANDS = {
   ],
   network: [
     ["mikrotik", { keywords: ["routeros", "router"] }],
-    ["cisco", { keywords: ["ios", "switch", "router"] }],
+    ["cisco", { keywords: ["ios", "switch", "router"], hidden: true }],
     ["ubiquiti", { keywords: ["unifi", "edgerouter"] }],
     ["pfsense", { keywords: ["firewall"] }],
     ["opnsense", { keywords: ["firewall"] }],
     ["openwrt", { keywords: ["router"] }],
     ["tplink", { id: "tp-link", keywords: ["router"] }],
-    ["netgear", { keywords: ["router", "switch"] }],
-    ["asus", { keywords: ["router"] }],
+    ["netgear", { keywords: ["router", "switch"], hidden: true }],
+    ["asus", { keywords: ["router"], hidden: true }],
     ["fortinet", { keywords: ["fortigate", "firewall"] }],
     ["paloaltonetworks", { id: "palo-alto", keywords: ["firewall"] }],
     ["wireguard", { keywords: ["vpn"] }],
@@ -139,8 +143,8 @@ export const BRANDS = {
     ["adguard", { keywords: ["dns", "adblock"] }],
   ],
   nas: [
-    ["synology", { keywords: ["dsm", "diskstation", "nas"] }],
-    ["qnap", { keywords: ["nas"] }],
+    ["synology", { keywords: ["dsm", "diskstation", "nas"], hidden: true }],
+    ["qnap", { keywords: ["nas"], hidden: true }],
     ["nextcloud", { keywords: ["cloud", "files"] }],
     ["owncloud", { keywords: ["cloud", "files"] }],
     ["homeassistant", { id: "home-assistant", keywords: ["hass", "hassio"] }],
@@ -173,12 +177,12 @@ export const BRANDS = {
     ["kibana", { keywords: ["elk"] }],
     ["elastic", { keywords: ["elk"] }],
     "sentry",
-    ["jfrog", { keywords: ["artifactory"] }],
+    ["jfrog", { keywords: ["artifactory"], hidden: true }],
     "harbor",
   ],
   other: [
     ["jellyfin", { keywords: ["media"] }],
-    ["plex", { keywords: ["media"] }],
+    ["plex", { keywords: ["media"], hidden: true }],
     ["emby", { keywords: ["media"] }],
     ["steam", { keywords: ["game", "valve"] }],
     ["minecraft", { tabler: "Minecraft", keywords: ["game"] }],

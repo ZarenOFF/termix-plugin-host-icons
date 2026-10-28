@@ -3,7 +3,8 @@ import {
   type PluginHostRecord,
 } from "@termix-ssh/plugin-sdk/frontend";
 import { HostIcon } from "./HostIcon";
-import { iconLabel } from "./icons";
+import { iconLabel, isCustomIcon } from "./icons";
+import { useLibrary } from "./library";
 import { useIconLayout, type Preferences } from "./preferences";
 import { resolveAppearance } from "./rules";
 
@@ -23,6 +24,9 @@ export const BADGE_ORDER = -100;
 export function createHostIconBadge(preferences: Preferences) {
   return function HostIconBadge({ host }: { host: PluginHostRecord }) {
     const { t } = useTranslation();
+    // Badges never ask the server: the overlay loads the library, and this
+    // redraws when it changes.
+    useLibrary();
     const { position, anyIcon, skipEmptySlot, rules } =
       useIconLayout(preferences);
     const { resolved, rule } = resolveAppearance(host, rules);
@@ -37,7 +41,12 @@ export function createHostIconBadge(preferences: Preferences) {
         />
       );
     }
-    const label = iconLabel(resolved.icon, t);
+    // An uploaded icon the library has not loaded yet is an empty slot with
+    // no name to announce.
+    const label =
+      isCustomIcon(resolved.icon) && resolved.icon.pending
+        ? undefined
+        : iconLabel(resolved.icon, t);
     return (
       <span
         data-testid="host-icon-badge"

@@ -34,6 +34,7 @@ import {
 import { HostIcon } from "./HostIcon";
 import { ColorPicker, IconPicker } from "./IconPicker";
 import { findIcon, normalizeColor } from "./icons";
+import { useLibrary } from "./library";
 import {
   RULES_KEY,
   newRule,
@@ -310,6 +311,7 @@ function RuleRow({
   const { t } = useTranslation();
   const row = useRef<HTMLLIElement>(null);
   const n = index + 1;
+  useLibrary();
   const icon = findIcon(rule.icon);
   const color = normalizeColor(rule.color);
   const lineAbove = drop === index;

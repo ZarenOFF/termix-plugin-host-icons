@@ -61,14 +61,17 @@ Keep this section current when the plugin changes: what it does, how it is put t
 aren't obvious from the code, and anything that has bitten you before.
 
 - What it does: lets each host have an icon and a color, shown next to its name in the Hosts list.
-- Frontend only. The backend is an empty `activate` because `termix-plugin build` requires an entry. There
-  are no tables, routes or permissions, and the only capability is `ui:surface`.
+- Mostly frontend. Capabilities: `ui:surface`, `db:own`, `network:serve`. The backend only serves the shared
+  library of uploaded icons (see "Uploaded icons"); everything else is frontend.
 - Storage: two host settings, `icon` (an id from `HOST_ICONS` in `src/frontend/icons.ts`) and `color`
   (`#rrggbb` or empty for the theme color). Both are `custom` fields, so core stores whatever it is sent:
   `resolveHostIcon` treats an unknown id as `FALLBACK_ICON_ID` and an invalid color as the theme color.
   They are defaultable (admin, user, folder). Core writes resolved defaults into each host's rows, so
   `host.pluginSettings["host-icons"]` already holds the effective value.
-- Icons: two packs. Lucide icons (ids like `server`, `HOST_ICONS` in `src/frontend/icons.ts`) are drawn with
+- Icons: four kinds of id. Text icons are `text:<frame|plate|plain>:<label>` (1 to 4 characters, parsed strictly in
+  `icons.ts`, drawn by `HostIcon` as svg text with a measured width; the Text tab lists the ones hosts and rules already use,
+  collected by the preferences component into `src/frontend/used-text.ts`), uploaded ones are `custom:<uuid>`. Two packs of
+  named icons: Lucide icons (ids like `server`, `HOST_ICONS` in `src/frontend/icons.ts`) are drawn with
   `PluginIcon` from `@termix-ssh/plugin-sdk/ui`, which looks names up in Lucide's `icons` map inside Termix
   (lucide-react 1.49 in Termix 26.10). Nothing is bundled. Use canonical names: aliases like `Building2` or
   `Fingerprint` are missing from that map and draw a puzzle piece. A test catches it. Brand logos (ids
@@ -78,7 +81,9 @@ aren't obvious from the code, and anything that has bitten you before.
   and Tabler icons (MIT, only for brands Simple Icons lacks), both exact pinned devDependencies. Never edit the
   generated file by hand; a test fails when it is out of date. The stored id is ours and independent of the
   pack slug: if a pack renames a slug, change the slug in `brands.mjs` and keep the id. Never rename or remove
-  a shipped icon id, of either pack. Brand titles are not translated, group names are. `.tmxplug` packs only
+  a shipped icon id, of either pack. Brands in `scripts/brands.mjs` can have `hidden: true`: still generated so hosts that store the id keep
+  their logo, but the picker and search skip them (used for wordmark logos that are unreadable small: cisco, vmware,
+  macos, ios, netgear, asus, synology, qnap, dotnet, plex, netbsd, jfrog). Brand titles are not translated, group names are. `.tmxplug` packs only
   manifest, dist, locales, README, CHANGELOG, LICENSE and `NOTICE`, so the third party notices live in
   `NOTICE`; update it when a pack or version changes.
 - Host list: `registerHostBadge`. Classic Layout draws badges after the name, pin and lock, and hides them
@@ -127,5 +132,31 @@ aren't obvious from the code, and anything that has bitten you before.
   test mocks it with `vi.mock`.
 - Termix's Dialog overlay blurs the whole app (`backdrop-blur-xs`), and hovering the icon grid over it
   lagged badly. Our dialog carries `data-host-icons-dialog` and `host-icons.css` drops the blur for it.
-- Not done yet: uploading your own SVG/PNG icons (needs a table, a route and SVG sanitizing). Wait for the
-  maintainer before starting it.
+- Uploaded icons: one shared library for the whole server, so a shared host looks the same to everyone. Table
+  `icons` (`src/backend/tables.ts`): uuid id picked by the server (no `returning()`, MySQL lacks it), name, kind
+  `svg`|`png`, data, tint, `uploadedBy` (a plain varchar, not `refUser`, so icons outlive the uploader), createdAt.
+  Routes in `src/backend/routes.ts` (each with `@openapi` and tests): GET (any signed-in user), POST, PATCH
+  (name, tint), DELETE. Permissions `upload` (add, change own; admin and user) and `manage` (change anyone's;
+  admin); `canEdit` in a response says what the caller may change. `uploadedBy` is never sent to clients. Limits:
+  name 1 to 64, SVG 100 KB after sanitizing, PNG 256 KB decoded and 512 by 512 (IHDR read, `png.ts`), 500 icons and
+  10 MB of data in all (POST answers 409 so GET stays bounded). `sanitize-svg.ts` parses with htmlparser2 (bundled,
+  see `NOTICE`) and rebuilds the markup from an allowlist of elements and attributes; it drops script, style,
+  foreignObject, image, animation, event attributes, comments and doctype, and keeps only local `#` references.
+  Never store the file as it came. The frontend loads the library into a store (`library.ts`) in the same
+  `shell.overlay` preferences component; before it loads a `custom:` id draws an empty slot, after it an unknown id
+  draws the fallback. `HostIcon` draws them as an `<img>` with a data: URL or, tinted, a span with a CSS mask in
+  `currentColor`, marked `data-custom-icon`. A host color always tints; without one only an icon with `tint` (shown as
+  "Monochrome icon") is tinted, in the theme color, so a multicolor file keeps its colors; never inline SVG. So CSS in `host-icons.css` targets
+  `:is(svg, [data-custom-icon])`. The picker's Uploaded tab (`uploaded.tsx`) uploads, renames and deletes, and
+  refreshes the store after each change.
+- Sync: `ctx.sync.registerEntity` (type `icons`, in `src/backend/index.ts`; the wire name never changes) and
+  `contributes.syncEntities`. Core needs an auto increment `id` and a `syncId` column, so the table has both and the
+  public icon id everywhere (API `id`, `custom:<uuid>` in host settings, PATCH and DELETE paths) is the `syncId`; the
+  numeric `id` never leaves the server. `uploadedBy` is the sync owner column, and core syncs only the rows whose owner is
+  the user, so only your own uploads reach your linked desktop, and icons other people uploaded don't: a host that uses one
+  shows the fallback on the desktop while it is offline. Core checks `permissions.create` as given, so it is the full name
+  `host-icons.upload`; changes and deletes only touch the pusher's own rows and need no permission. `deserialize` runs on
+  every inbound row and runs `checkIcon` from `src/backend/library.ts`, the same check as the upload route (name, kind,
+  tint, SVG sanitizing, PNG header, size), stores the sanitized output and throws to reject the row. It also applies the
+  500 icon and 10 MB caps (`hasRoom`), leaving out the row's own syncId so a change to a stored icon on a full library still
+  works. Version 0.3.0 was never released with the old string key, so the migration was rewritten rather than added.

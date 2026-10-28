@@ -9,8 +9,9 @@
  */
 
 import { BRAND_GROUPS, BRAND_ICONS, type BrandGroup } from "./brands.generated";
+import { findCustomIcon, type CustomIconDef } from "./library";
 
-export { BRAND_GROUPS, BRAND_ICONS, type BrandGroup };
+export { BRAND_GROUPS, BRAND_ICONS, type BrandGroup, type CustomIconDef };
 
 export const PLUGIN_ID = "host-icons";
 
@@ -57,13 +58,81 @@ export interface BrandIconDef {
   d: string;
   /** Drawn as a 2px outline instead of a filled shape. */
   stroke?: boolean;
+  /**
+   * Still resolves through findIcon so a host that stores it keeps its logo,
+   * but the picker and search do not offer it.
+   */
+  hidden?: boolean;
 }
 
-/** Either pack's icon: what a host's stored id resolves to. */
-export type HostIconDef = LucideIconDef | BrandIconDef;
+export const TEXT_STYLES = ["frame", "plate", "plain"] as const;
+
+export type TextIconStyle = (typeof TEXT_STYLES)[number];
+
+/** Longest label of a text icon, in code points. */
+export const TEXT_MAX_LENGTH = 4;
+
+const TEXT_PREFIX = "text:";
+
+/**
+ * A short text label drawn as an icon. Its id is "text:<style>:<label>", so
+ * the label is stored in the same host setting as any other icon id.
+ */
+export interface TextIconDef {
+  /** The canonical id: the label trimmed. */
+  id: string;
+  /** 1 to 4 code points. */
+  text: string;
+  style: TextIconStyle;
+}
+
+/** Any icon: what a host's stored id resolves to. */
+export type HostIconDef =
+  LucideIconDef | BrandIconDef | TextIconDef | CustomIconDef;
+
+export function isCustomIcon(icon: HostIconDef): icon is CustomIconDef {
+  return "custom" in icon;
+}
 
 export function isBrandIcon(icon: HostIconDef): icon is BrandIconDef {
   return "d" in icon;
+}
+
+export function isTextIcon(icon: HostIconDef): icon is TextIconDef {
+  return "text" in icon && "style" in icon;
+}
+
+/** Cuts a label to its first four code points. */
+export function clampTextLabel(label: string): string {
+  return [...label].slice(0, TEXT_MAX_LENGTH).join("");
+}
+
+/**
+ * The id of a text icon, or null when the label is empty (after trimming) or
+ * longer than four code points.
+ */
+export function textIconId(style: TextIconStyle, label: string): string | null {
+  const text = label.trim();
+  const length = [...text].length;
+  if (length < 1 || length > TEXT_MAX_LENGTH) return null;
+  if (!TEXT_STYLES.includes(style)) return null;
+  return `${TEXT_PREFIX}${style}:${text}`;
+}
+
+/** Reads "text:<style>:<label>" strictly; anything else is undefined. */
+export function parseTextIcon(id: string): TextIconDef | undefined {
+  if (!id.startsWith(TEXT_PREFIX)) return undefined;
+  const rest = id.slice(TEXT_PREFIX.length);
+  const colon = rest.indexOf(":");
+  if (colon < 0) return undefined;
+  const style = rest.slice(0, colon) as TextIconStyle;
+  const canonical = textIconId(style, rest.slice(colon + 1));
+  if (!canonical) return undefined;
+  return {
+    id: canonical,
+    text: canonical.slice(TEXT_PREFIX.length + style.length + 1),
+    style,
+  };
 }
 
 /** The Lucide icons, in the order the picker shows them. */
@@ -374,7 +443,8 @@ const BY_ID = new Map<string, HostIconDef>(
 
 /** An icon of either pack by its stored id. */
 export function findIcon(id: unknown): HostIconDef | undefined {
-  return typeof id === "string" ? BY_ID.get(id) : undefined;
+  if (typeof id !== "string") return undefined;
+  return BY_ID.get(id) ?? parseTextIcon(id) ?? findCustomIcon(id);
 }
 
 const HEX_6 = /^#[0-9a-f]{6}$/i;
@@ -436,6 +506,8 @@ export function iconLabel(
   icon: HostIconDef,
   t: (key: string) => string,
 ): string {
+  if (isCustomIcon(icon)) return icon.name;
+  if (isTextIcon(icon)) return icon.text;
   return isBrandIcon(icon) ? icon.title : t(`icons.${icon.id}`);
 }
 
@@ -464,12 +536,23 @@ export function searchIcons(
  */
 export function searchBrands(query: string): BrandIconDef[] {
   const needle = query.trim().toLowerCase();
-  if (!needle) return [...BRAND_ICONS];
-  return BRAND_ICONS.filter((icon) =>
+  const offered = BRAND_ICONS.filter((icon) => !icon.hidden);
+  if (!needle) return offered;
+  return offered.filter((icon) =>
     matches(needle, [
       icon.id.slice("brand-".length),
       icon.title,
       ...(icon.keywords ?? []),
     ]),
   );
+}
+
+/** Uploaded icons whose name contains the query, in library order. */
+export function searchCustomIcons(
+  query: string,
+  icons: readonly CustomIconDef[],
+): CustomIconDef[] {
+  const needle = query.trim().toLowerCase();
+  if (!needle) return [...icons];
+  return icons.filter((icon) => icon.name.toLowerCase().includes(needle));
 }

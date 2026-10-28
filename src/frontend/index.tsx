@@ -10,7 +10,9 @@ import {
   createChangeIconOverlay,
   createPickerState,
 } from "./change-icon";
+import { library } from "./library";
 import { createPreferences, createPreferencesSync } from "./preferences";
+import { usedTextIcons } from "./used-text";
 import { RULES_FIELD_COMPONENT, RulesField } from "./rules-editor";
 import {
   COLOR_FIELD_COMPONENT,
@@ -69,4 +71,6 @@ export function activate(app: TermixApp): void {
     },
   });
   app.onDispose(picker.close);
+  app.onDispose(library.reset);
+  app.onDispose(usedTextIcons.reset);
 }

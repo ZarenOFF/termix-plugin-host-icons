@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
-import { useHosts, useSettings } from "@termix-ssh/plugin-sdk/frontend";
+import {
+  useHosts,
+  usePluginApi,
+  useSettings,
+} from "@termix-ssh/plugin-sdk/frontend";
+import { refreshLibrary, useLibrary } from "./library";
+import { collectTextIcons, usedTextIcons } from "./used-text";
 import {
   NO_RULES,
   RULES_KEY,
@@ -110,12 +116,21 @@ export function useIconLayout(preferences: Preferences): IconLayout {
 /**
  * Mounted once through the shell.overlay slot. useSettings reads again when
  * the user saves a setting, and useHosts follows the host list, so rows
- * follow both without a reload.
+ * follow both without a reload. It also loads the library of uploaded icons
+ * into its store, once; whoever changes the library refreshes that store, and
+ * the badges, which only read it, follow.
  */
 export function createPreferencesSync(preferences: Preferences) {
   return function HostIconsPreferences() {
     const { values, loaded } = useSettings("user");
     const { hosts } = useHosts();
+    const api = usePluginApi();
+    // Uploaded icons resolve through the library, so what is active and what
+    // is drawn changes when it loads or changes.
+    const library = useLibrary();
+    useEffect(() => {
+      void refreshLibrary(api);
+    }, [api]);
     const position = loaded
       ? normalizePosition(values[POSITION_KEY])
       : preferences.get().position;
@@ -126,7 +141,8 @@ export function createPreferencesSync(preferences: Preferences) {
     const rulesJson = loaded ? JSON.stringify(values[RULES_KEY] ?? []) : null;
     const userRules = useMemo(
       () => (rulesJson === null ? null : activeRules(JSON.parse(rulesJson))),
-      [rulesJson],
+      // activeRules looks icons up in the library, which is not an argument.
+      [rulesJson, library],
     );
     const rules = useMemo(
       () => (userRules ? [userRules] : preferences.get().rules),
@@ -138,6 +154,12 @@ export function createPreferencesSync(preferences: Preferences) {
     useEffect(() => {
       preferences.set({ position, anyIcon, skipEmptySlot, rules });
     }, [position, anyIcon, skipEmptySlot, rules]);
+    // Text icons are typed, not listed, so the Text tab offers these again.
+    useEffect(() => {
+      usedTextIcons.set(
+        collectTextIcons(hosts, loaded ? values[RULES_KEY] : undefined),
+      );
+    }, [hosts, loaded, values]);
     // The large icon's room is padding on the row's text column, which can't
     // read a variable from the badge inside it, so the scale sits on the root.
     const size = loaded ? normalizeSize(values[SIZE_KEY]) : null;

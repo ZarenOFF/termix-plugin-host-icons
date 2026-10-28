@@ -1,7 +1,7 @@
 {
   "name": "termix-plugin-host-icons",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "brands": "node scripts/generate-brands.mjs",
@@ -23,9 +23,12 @@
     "@termix-ssh/plugin-sdk": "^1.0.21",
     "@testing-library/dom": "^10.4.2",
     "@testing-library/react": "^16.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/express": "^5.0.6",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
+    "better-sqlite3": "^13.0.3",
     "husky": "^9.1.7",
     "i18next": "^26.4.2",
     "jsdom": "^30.0.1",
@@ -40,6 +43,8 @@
   },
   "peerDependencies": {
     "@termix-ssh/plugin-sdk": "^1.0.21",
+    "drizzle-orm": "^0.45.2",
+    "express": "^5.2.1",
     "react": "^19.2.8"
   },
   "lint-staged": {
@@ -50,5 +55,8 @@
   "engines": {
     "node": ">=22.12.0"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "htmlparser2": "12.0.0"
+  }
 }

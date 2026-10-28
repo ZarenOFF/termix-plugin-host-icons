@@ -117,6 +117,7 @@ export function resolveBrands() {
         keywords: options.keywords ?? [],
         d: source.d,
         stroke: source.stroke,
+        hidden: options.hidden === true,
       });
     }
   }
@@ -133,6 +134,7 @@ function iconLine(icon) {
     fields.push(`keywords: ${JSON.stringify(icon.keywords)}`);
   }
   if (icon.stroke) fields.push("stroke: true");
+  if (icon.hidden) fields.push("hidden: true");
   fields.push(`d: ${JSON.stringify(icon.d)}`);
   return `  { ${fields.join(", ")} },`;
 }

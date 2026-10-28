@@ -41,6 +41,17 @@
     "search": "Search icons",
     "packIcons": "Icons",
     "packBrands": "Brands",
+    "packText": "Text",
+    "packCustom": "Uploaded",
+    "textLabel": "Label",
+    "textPlaceholder": "Type text",
+    "textUsed": "Already in use",
+    "textStyle": {
+      "frame": "Frame",
+      "plate": "Plate",
+      "plain": "Plain"
+    },
+    "textHint": "1 to 4 characters. The color applies to the text.",
     "none": "No icon",
     "empty": "No icons match.",
     "themeColor": "Theme color",
@@ -191,5 +202,51 @@
     "followsDefault": "Follows the default after saving",
     "ruleNote": "Rule \"{{rule}}\" gives this host an icon while it has none.",
     "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon or color shown for this host."
+  },
+  "custom": {
+    "upload": "Upload icon",
+    "fileLabel": "Icon file (SVG or PNG)",
+    "manage": "Manage",
+    "done": "Done",
+    "namePlaceholder": "Icon name",
+    "nameLabel": "Name of the new icon",
+    "recolor": "Monochrome icon",
+    "recolorHint": "Without a chosen color, draws the icon in the theme color like the built-in icons. Off keeps the colors of the file. A chosen color always paints the whole icon.",
+    "add": "Add to library",
+    "cancel": "Cancel",
+    "renameLabel": "Name of {{name}}",
+    "rename": "Save the name of {{name}}",
+    "save": "Save",
+    "delete": "Delete {{name}}",
+    "deleteAction": "Delete",
+    "deleteTitle": "Delete {{name}}?",
+    "deleteDescription": "Hosts that use this icon will show the fallback icon. Everyone sharing the library loses it.",
+    "deleteConfirm": "Delete",
+    "empty": "No uploaded icons yet.",
+    "uploaded": "Icon added",
+    "renamed": "Icon renamed",
+    "deleted": "Icon deleted",
+    "errors": {
+      "type": "Only SVG and PNG files can be uploaded.",
+      "tooBig": "This file is too big.",
+      "unreadable": "The file could not be read.",
+      "forbidden": "You do not have permission to do that.",
+      "notFound": "This icon no longer exists.",
+      "full": "The icon library is full. Delete an icon first.",
+      "name": "The name must be 1 to 64 characters.",
+      "pixels": "The image is too large in pixels.",
+      "invalid": "This file is not a valid or safe icon.",
+      "failed": "Something went wrong. Try again."
+    }
+  },
+  "permissions": {
+    "upload": {
+      "title": "Upload icons",
+      "description": "Add icons to the shared library and rename or delete your own."
+    },
+    "manage": {
+      "title": "Manage uploaded icons",
+      "description": "Rename or delete icons that other people uploaded."
+    }
   }
 }

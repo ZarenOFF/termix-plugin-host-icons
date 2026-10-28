@@ -66,8 +66,12 @@ describe("manifest host settings", () => {
     );
   });
 
-  it("asks for no capability beyond adding UI", () => {
-    expect(manifest.capabilities).toEqual(["ui:surface"]);
+  it("asks for UI, its own database and routes, and nothing else", () => {
+    expect([...manifest.capabilities].sort()).toEqual([
+      "db:own",
+      "network:serve",
+      "ui:surface",
+    ]);
   });
 });
 
@@ -201,6 +205,13 @@ describe("icon packs", () => {
     expect(tile("Ubuntu")).toBeNull();
   });
 
+  it("leaves hidden logos out of the brands tab", async () => {
+    await renderField("icon-picker");
+    fireEvent.click(brandsTab());
+    expect(tile("Cisco")).toBeNull();
+    expect(tile("macOS")).toBeNull();
+  });
+
   it("stores the id of the brand picked", async () => {
     const { setValue } = await renderField("icon-picker");
     fireEvent.click(brandsTab());
@@ -215,6 +226,14 @@ describe("icon packs", () => {
     });
     expect(brandsTab().getAttribute("aria-checked")).toBe("true");
     expect(tile("Debian")!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("does not offer hidden logos but still marks one a host has", async () => {
+    await renderField("icon-picker", { icon: "brand-cisco" });
+    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
+    expect(tile("Cisco")!.getAttribute("aria-pressed")).toBe("true");
+    expect(tile("VMware")).toBeNull();
+    expect(screen.queryByText(/does not know/)).toBeNull();
   });
 
   it("opens on Icons for an empty value or an id it does not know", async () => {

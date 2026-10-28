@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@termix-ssh/plugin-sdk/frontend";
 import { HexColorPicker, Input, Segmented } from "@termix-ssh/plugin-sdk/ui";
 import { HostIcon } from "./HostIcon";
+import { useUsedTextIcons } from "./used-text";
 import {
   BRAND_GROUPS,
   FALLBACK_ICON_ID,
@@ -9,17 +10,30 @@ import {
   findIcon,
   iconLabel,
   isBrandIcon,
+  isTextIcon,
+  TEXT_STYLES,
+  clampTextLabel,
   normalizeColor,
+  parseTextIcon,
+  textIconId,
+  type TextIconDef,
+  type TextIconStyle,
+  isCustomIcon,
   searchBrands,
+  searchCustomIcons,
   searchIcons,
   type HostIconDef,
 } from "./icons";
+import { useLibrary } from "./library";
+import { UploadedPack } from "./uploaded";
 
-type Pack = "icons" | "brands";
+type Pack = "icons" | "brands" | "text" | "custom";
 
 function packOf(value: string): Pack | null {
   const current = findIcon(value);
   if (!current) return null;
+  if (isTextIcon(current)) return "text";
+  if (isCustomIcon(current)) return "custom";
   return isBrandIcon(current) ? "brands" : "icons";
 }
 
@@ -50,6 +64,8 @@ export function IconPicker({
   noneLabel?: string;
 }) {
   const { t } = useTranslation();
+  // Uploaded icons resolve through the library, which can change under us.
+  const { icons: uploaded } = useLibrary();
   const [query, setQuery] = useState("");
   const [pack, setPack] = useState<Pack>(() => packOf(value) ?? "icons");
   // The host list can arrive after the dialog opens, so `value` may change
@@ -61,12 +77,46 @@ export function IconPicker({
     if (next && next !== valuePack.current) setPack(next);
     if (next) valuePack.current = next;
   }, [value]);
+  const [textLabel, setTextLabel] = useState(
+    () => parseTextIcon(value)?.text ?? "",
+  );
+  const [textStyle, setTextStyle] = useState<TextIconStyle>(
+    () => parseTextIcon(value)?.style ?? "frame",
+  );
+  // Follow a text id that arrives from outside, but keep what is being typed
+  // (a trailing space, say) when the value is just the echo of it.
+  useEffect(() => {
+    const parsed = parseTextIcon(value);
+    if (!parsed) return;
+    setTextLabel((current) =>
+      current.trim() === parsed.text ? current : parsed.text,
+    );
+    setTextStyle(parsed.style);
+  }, [value]);
   const label = (icon: HostIconDef) => iconLabel(icon, t);
   const tint = normalizeColor(color);
   const unknown = value !== "" && !findIcon(value);
   const lucide = searchIcons(query, label);
   const brands = searchBrands(query);
-  const searching = query.trim() !== "";
+  const custom = searchCustomIcons(query, uploaded);
+  // A hidden logo is not offered, but a host that already has it must still
+  // see it selected, in its own group.
+  const current = findIcon(value);
+  const hiddenCurrent =
+    current && isBrandIcon(current) && current.hidden ? current : null;
+  const textPack = pack === "text";
+  const usedText = useUsedTextIcons()
+    .map((id) => parseTextIcon(id))
+    .filter((icon): icon is TextIconDef => icon !== undefined);
+  const searching = !textPack && query.trim() !== "";
+
+  const editText = (nextLabel: string, nextStyle: TextIconStyle) => {
+    setTextLabel(nextLabel);
+    setTextStyle(nextStyle);
+    const id = textIconId(nextStyle, nextLabel);
+    if (id) onChange(id);
+  };
+  const textPreview = parseTextIcon(textIconId(textStyle, textLabel) ?? "");
 
   const tile = (icon: HostIconDef) => {
     const selected = value === icon.id;
@@ -98,17 +148,21 @@ export function IconPicker({
         options={[
           { value: "icons", label: t("picker.packIcons") },
           { value: "brands", label: t("picker.packBrands") },
+          { value: "text", label: t("picker.packText") },
+          { value: "custom", label: t("picker.packCustom") },
         ]}
         className="self-start"
       />
-      <Input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder={t("picker.search")}
-        aria-label={t("picker.search")}
-        disabled={disabled}
-        className="h-8 text-xs"
-      />
+      {!textPack && (
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={t("picker.search")}
+          aria-label={t("picker.search")}
+          disabled={disabled}
+          className="h-8 text-xs"
+        />
+      )}
       {unknown && (
         <p className="text-xs text-warning">
           {t("picker.unknown", {
@@ -116,52 +170,113 @@ export function IconPicker({
           })}
         </p>
       )}
-      <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
-        {!searching && (
-          <div className="grid grid-cols-8 gap-1.5">
-            <button
-              type="button"
-              aria-pressed={value === ""}
+      {textPack ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-2">
+            <Input
+              value={textLabel}
+              onChange={(event) =>
+                editText(clampTextLabel(event.target.value), textStyle)
+              }
+              placeholder={t("picker.textPlaceholder")}
+              aria-label={t("picker.textLabel")}
               disabled={disabled}
-              onClick={() => onChange("")}
-              className={`${TILE} col-span-2 text-[11px] ${value === "" ? TILE_ON : TILE_OFF}`}
+              className="h-8 text-xs w-36 placeholder:text-muted-foreground/60"
+            />
+            <span
+              data-testid="text-icon-preview"
+              className="flex items-center justify-center size-9 border border-border"
             >
-              {noneLabel ?? t("picker.none")}
-            </button>
+              {textPreview && (
+                <HostIcon icon={textPreview} color={tint} className="size-6" />
+              )}
+            </span>
           </div>
-        )}
-        {searching ? (
-          lucide.length + brands.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t("picker.empty")}</p>
-          ) : (
+          <Segmented<TextIconStyle>
+            value={textStyle}
+            onChange={(next) => editText(textLabel, next)}
+            options={TEXT_STYLES.map((style) => ({
+              value: style,
+              label: t(`picker.textStyle.${style}`),
+            }))}
+            className="self-start"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            {t("picker.textHint")}
+          </p>
+          {usedText.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] text-muted-foreground">
+                {t("picker.textUsed")}
+              </span>
+              <div className="grid grid-cols-8 gap-1.5 max-h-36 overflow-y-auto pr-1">
+                {usedText.map(tile)}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2 max-h-56 overflow-y-auto pr-1">
+          {!searching && (
             <div className="grid grid-cols-8 gap-1.5">
-              {[...lucide, ...brands].map(tile)}
+              <button
+                type="button"
+                aria-pressed={value === ""}
+                disabled={disabled}
+                onClick={() => onChange("")}
+                className={`${TILE} col-span-2 text-[11px] ${value === "" ? TILE_ON : TILE_OFF}`}
+              >
+                {noneLabel ?? t("picker.none")}
+              </button>
             </div>
-          )
-        ) : pack === "brands" ? (
-          BRAND_GROUPS.map((group) => (
-            <div key={group} className="flex flex-col gap-1">
-              <span className="text-[11px] text-muted-foreground">
-                {t(`brandGroups.${group}`)}
-              </span>
+          )}
+          {searching ? (
+            lucide.length + brands.length + custom.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {t("picker.empty")}
+              </p>
+            ) : (
               <div className="grid grid-cols-8 gap-1.5">
-                {brands.filter((icon) => icon.group === group).map(tile)}
+                {[...lucide, ...brands, ...custom].map(tile)}
               </div>
-            </div>
-          ))
-        ) : (
-          ICON_GROUPS.map((group) => (
-            <div key={group} className="flex flex-col gap-1">
-              <span className="text-[11px] text-muted-foreground">
-                {t(`groups.${group}`)}
-              </span>
-              <div className="grid grid-cols-8 gap-1.5">
-                {lucide.filter((icon) => icon.group === group).map(tile)}
+            )
+          ) : pack === "custom" ? null : pack === "brands" ? (
+            BRAND_GROUPS.map((group) => (
+              <div key={group} className="flex flex-col gap-1">
+                <span className="text-[11px] text-muted-foreground">
+                  {t(`brandGroups.${group}`)}
+                </span>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {[
+                    ...brands.filter((icon) => icon.group === group),
+                    ...(hiddenCurrent?.group === group ? [hiddenCurrent] : []),
+                  ].map(tile)}
+                </div>
               </div>
-            </div>
-          ))
-        )}
-      </div>
+            ))
+          ) : (
+            ICON_GROUPS.map((group) => (
+              <div key={group} className="flex flex-col gap-1">
+                <span className="text-[11px] text-muted-foreground">
+                  {t(`groups.${group}`)}
+                </span>
+                <div className="grid grid-cols-8 gap-1.5">
+                  {lucide.filter((icon) => icon.group === group).map(tile)}
+                </div>
+              </div>
+            ))
+          )}
+          {pack === "custom" && (
+            <UploadedPack
+              query={query}
+              hideGrid={searching}
+              disabled={disabled}
+              renderTile={tile}
+              onSelect={onChange}
+            />
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -205,6 +320,7 @@ export function IconPreview({
   color?: string | null;
 }) {
   const { t } = useTranslation();
+  useLibrary();
   if (!value) {
     return (
       <span className="text-xs text-muted-foreground">
@@ -216,7 +332,7 @@ export function IconPreview({
   return (
     <span className="flex items-center gap-2 text-xs">
       <HostIcon icon={icon} color={normalizeColor(color)} className="size-5" />
-      {iconLabel(icon, t)}
+      {isCustomIcon(icon) && icon.pending ? null : iconLabel(icon, t)}
     </span>
   );
 }

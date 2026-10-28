@@ -228,7 +228,22 @@ describe("searchBrands", () => {
   const ids = (query: string) => searchBrands(query).map((icon) => icon.id);
 
   it("returns every brand for an empty query", () => {
-    expect(searchBrands(" ")).toHaveLength(BRAND_ICONS.length);
+    expect(searchBrands(" ")).toHaveLength(
+      BRAND_ICONS.filter((icon) => !icon.hidden).length,
+    );
+  });
+
+  it("does not offer hidden logos, though findIcon still resolves them", () => {
+    const hidden = BRAND_ICONS.filter((icon) => icon.hidden);
+    expect(hidden.map((icon) => icon.id)).toContain("brand-cisco");
+    for (const icon of hidden) {
+      expect(findIcon(icon.id)).toBe(icon);
+      expect(searchBrands("")).not.toContain(icon);
+      expect(ids(icon.title)).not.toContain(icon.id);
+    }
+    // A wordmark swapped for a symbol keeps its stored id.
+    expect(findIcon("brand-mysql")).toMatchObject({ stroke: true });
+    expect(ids("mysql")).toContain("brand-mysql");
   });
 
   it("matches the name, the id and keywords, ignoring case", () => {

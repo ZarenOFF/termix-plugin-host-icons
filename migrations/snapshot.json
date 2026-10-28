@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "tables": {
+    "icons": {
+      "columns": {
+        "id": {
+          "type": "id",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "syncId": {
+          "type": "varchar",
+          "length": 36,
+          "notNull": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 64,
+          "notNull": true
+        },
+        "kind": {
+          "type": "varchar",
+          "length": 8,
+          "notNull": true
+        },
+        "data": {
+          "type": "text",
+          "notNull": true
+        },
+        "tint": {
+          "type": "boolean",
+          "notNull": true,
+          "defaultValue": false
+        },
+        "uploadedBy": {
+          "type": "varchar",
+          "length": 255,
+          "notNull": true
+        },
+        "createdAt": {
+          "type": "timestamp",
+          "notNull": true,
+          "defaultNow": true
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_p_host_icons_icons_sync_id",
+          "columns": [
+            "syncId"
+          ],
+          "unique": true
+        }
+      ]
+    }
+  }
+}

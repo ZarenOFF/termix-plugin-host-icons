@@ -9,6 +9,8 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 ## Features
 
 - An **Icon** and an **Icon color** field in the host editor, with a searchable picker of two packs: about 80 general icons (servers, storage, network gear, devices, security, development) and about 150 monochrome brand logos (Linux distributions, Proxmox, Docker, Kubernetes, databases, routers, NAS and more)
+- **Text icons:** a label of up to 4 characters, such as DB or K8S, as a frame, a plate or plain text
+- **Your own icons:** upload SVG or PNG files to a library shared with everyone, with permissions to upload and to manage (a chosen icon color paints them). The icons you upload sync to a linked desktop
 - A large icon left of each host in the Hosts list, like in MobaXterm, or a small one before or after the name (**Icon position** in your settings)
 - Defaults for a whole folder, for a user or for the whole server: hosts follow the default until they pick their own icon
 - **Change icon** in the host's right-click menu and in the command palette for a quick change, with **Use default** to follow the folder default again
@@ -45,12 +47,13 @@ To install a build by hand, see [Development](#development).
 - An empty icon means "no icon", so a host can't opt out of an automatic icon except by picking an icon of its own, and nothing can opt out of a rule with **Priority** on.
 - The icon hides when **Plugin badges** is turned off under **Customize sidebar**, **Row details**.
 - The general icons come from [Lucide](https://lucide.dev), the icon set Termix already ships. The brand logos are bundled with the plugin and drawn in one color, so they follow the icon color, not the brand's own colors. A brand that is not in the pack has no logo; use a general icon instead.
-- Your own SVG or PNG icons are not supported yet.
+- Uploaded icons are shared by everyone on the server. SVG files are cleaned on upload (scripts, styles, images and external links are removed). Limits: 100 KB for an SVG, 256 KB and 512 by 512 pixels for a PNG, 500 icons and 10 MB in all.
+- Logos that are mostly lettering (Cisco, VMware, macOS, iOS, Netgear, ASUS, Synology, QNAP, .NET, Plex) are no longer offered. Hosts that already use them keep them.
 - People a host is shared with see the owner's icon. Only people who can edit the host can change it.
 
 ## Privacy
 
-The plugin makes no network requests of its own and has no tracking or telemetry. Icons are drawn from the copy of Lucide inside Termix or from logo data bundled in the plugin, and the icon and color are stored as host settings by Termix itself. The only capability it asks for is `ui:surface`.
+The plugin makes no network requests of its own and has no tracking or telemetry. Icons are drawn from the copy of Lucide inside Termix or from logo data bundled in the plugin, and the icon and color are stored as host settings by Termix itself. Uploaded icons are stored in the plugin's own database table. The capabilities it asks for are `ui:surface`, `db:own` and `network:serve` (the last two for the shared icon library).
 
 ## Development
 

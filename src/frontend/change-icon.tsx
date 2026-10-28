@@ -19,6 +19,7 @@ import {
 } from "@termix-ssh/plugin-sdk/ui";
 import { ColorPicker, IconPicker, IconPreview } from "./IconPicker";
 import { COLOR_KEY, ICON_KEY, PLUGIN_ID, normalizeColor } from "./icons";
+import { useLibrary } from "./library";
 import { useIconLayout, type Preferences } from "./preferences";
 import { resolveAppearance } from "./rules";
 
@@ -86,6 +87,8 @@ function ChangeIconDialog({
   const host = useHost(hostId);
   const settings = useSettings("host", hostId);
   const { rules } = useIconLayout(preferences);
+  // The preview resolves uploaded icons through the library.
+  useLibrary();
   const current = host?.pluginSettings?.[PLUGIN_ID] ?? {};
   const [icon, setIcon] = useState(text(current[ICON_KEY]));
   const [color, setColor] = useState(text(current[COLOR_KEY]));
