@@ -10,6 +10,7 @@ import {
   checkIcon,
   cleanName,
   hasRoom,
+  insertWithinLimits,
 } from "./library.js";
 
 export { MAX_ICONS, MAX_NAME_LENGTH, MAX_TOTAL_BYTES, cleanName };
@@ -143,21 +144,26 @@ export function registerRoutes(
     const { icon } = checked;
 
     const db = await client();
-    if (!(await hasRoom(db, iconsTable, Buffer.byteLength(icon.data)))) {
-      return res.status(409).json({
+    const full = () =>
+      res.status(409).json({
         error: `The library is full (${MAX_ICONS} icons or ${MAX_TOTAL_BYTES / 1024 / 1024} MB)`,
       });
+    if (!(await hasRoom(db, iconsTable, Buffer.byteLength(icon.data)))) {
+      return full();
     }
 
     const syncId = randomUUID();
-    // No returning(): MySQL does not support it. The row is read back by its syncId.
-    await db.insert(iconsTable).values({
+    // No returning(): MySQL does not support it. The row is read back by its
+    // syncId. The check above and the insert are not atomic, so the insert
+    // checks the totals again and takes the row back out when over.
+    const added = await insertWithinLimits(db, iconsTable, {
       syncId,
       ...icon,
       uploadedBy: actor(),
     });
     // SQLite only reaches disk when asked.
     await ctx.db.persist();
+    if (!added) return full();
     const row = (await find(syncId)) as IconRow;
     res.status(201).json({ icon: present(row, true, true) });
   });

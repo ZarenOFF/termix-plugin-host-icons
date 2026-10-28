@@ -19,11 +19,20 @@ Install Host Icons from the Plugins tab. There is nothing to set up: the host ed
 
 Only people who can edit a host can change its icon. People it is shared with see the owner's icon.
 
+## Corner badge
+
+A corner badge is a small mark on the bottom right corner of an icon, for something the icon alone does not say, such as an environment: P for production, or a dot for "needs attention". It is cut out of the icon, so it stays readable on any row background.
+
+- Open Change icon (right-click the host) or edit the host, and set the **Corner badge** under Layers: **None**, **Badge text** (1 or 2 characters, such as P or QA) or **Dot**. Pick a **Badge color** too, or leave it on Theme color to get a chip in the text color with the label cut out of it.
+- A badge needs an icon: it is drawn on top of it, and a host with no icon shows none. An icon given by an automatic rule counts.
+- Badges can be set in host defaults like the icon: for a folder, under My defaults in Manage, and by an admin under Server. Use default in the Change icon dialog sends the badge, or its color, back to the default. The two have their own Use default.
+- Rules do not set badges.
+
 ## Your own icons
 
 The Uploaded tab of the picker holds a library of SVG and PNG icons. The library is shared: everyone who can see a host sees the same icon, and everyone can pick from it.
 
-- Choose Upload icon, pick an SVG or PNG file and give it a name. Turn on Monochrome icon for a one-color icon: with no color chosen it is drawn in the theme color, like the built-in icons. Leave it off to keep the colors of the file. Then choose Add to library. Choosing a color for a host paints any uploaded icon in that color.
+- Choose Upload icon, pick an SVG or PNG file and give it a name. Turn on Monochrome icon for a one-color icon: with no color chosen it is drawn in the theme color, like the built-in icons. Leave it off to keep the colors of the file; the color picker then calls the empty choice Own colors. Then choose Add to library. Choosing a color for a host paints any uploaded icon in that color.
 - Choose Manage to rename or delete icons you may change. Deleting an icon takes it away from everyone: hosts that use it show the fallback icon.
 - Uploaded icons can also be used in automatic icon rules.
 

@@ -18,7 +18,16 @@ import {
   PluginIcon,
 } from "@termix-ssh/plugin-sdk/ui";
 import { ColorPicker, IconPicker, IconPreview } from "./IconPicker";
-import { COLOR_KEY, ICON_KEY, PLUGIN_ID, normalizeColor } from "./icons";
+import {
+  BADGE_COLOR_KEY,
+  BADGE_KEY,
+  COLOR_KEY,
+  ICON_KEY,
+  PLUGIN_ID,
+  normalizeColor,
+  parseBadge,
+} from "./icons";
+import { BadgeEditor } from "./layers";
 import { useLibrary } from "./library";
 import { useIconLayout, type Preferences } from "./preferences";
 import { resolveAppearance } from "./rules";
@@ -92,6 +101,8 @@ function ChangeIconDialog({
   const current = host?.pluginSettings?.[PLUGIN_ID] ?? {};
   const [icon, setIcon] = useState(text(current[ICON_KEY]));
   const [color, setColor] = useState(text(current[COLOR_KEY]));
+  const [badge, setBadge] = useState(text(current[BADGE_KEY]));
+  const [badgeColor, setBadgeColor] = useState(text(current[BADGE_COLOR_KEY]));
   // Keys to hand back to the folder, user or server default on Save.
   const [inherit, setInherit] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -99,10 +110,14 @@ function ChangeIconDialog({
   // The shell's host list can arrive after the dialog opens.
   const loadedIcon = text(current[ICON_KEY]);
   const loadedColor = text(current[COLOR_KEY]);
+  const loadedBadge = text(current[BADGE_KEY]);
+  const loadedBadgeColor = text(current[BADGE_COLOR_KEY]);
   useEffect(() => {
     setIcon(loadedIcon);
     setColor(loadedColor);
-  }, [hostId, loadedIcon, loadedColor]);
+    setBadge(loadedBadge);
+    setBadgeColor(loadedBadgeColor);
+  }, [hostId, loadedIcon, loadedColor, loadedBadge, loadedBadgeColor]);
 
   // What the Hosts list will draw for this host with what is picked now,
   // and the rule that changed it, if one did.
@@ -112,7 +127,12 @@ function ChangeIconDialog({
           ...host,
           pluginSettings: {
             ...host.pluginSettings,
-            [PLUGIN_ID]: { [ICON_KEY]: icon, [COLOR_KEY]: color },
+            [PLUGIN_ID]: {
+              [ICON_KEY]: icon,
+              [COLOR_KEY]: color,
+              [BADGE_KEY]: badge,
+              [BADGE_COLOR_KEY]: badgeColor,
+            },
           },
         },
         rules,
@@ -123,6 +143,8 @@ function ChangeIconDialog({
         value: rule.value,
       })
     : "";
+  // Layers are drawn on a base icon, from the host or from a rule.
+  const hasBase = (resolved?.icon.id ?? "") !== "";
   const ruleGivesIcon = rule !== null && rule.icon !== "" && icon === "";
 
   const follow = (key: string) =>
@@ -143,6 +165,20 @@ function ChangeIconDialog({
       nextColor !== (normalizeColor(loadedColor) ?? "")
     )
       values[COLOR_KEY] = nextColor;
+    // The badge compares by what it parses to, so a stored value that is
+    // not valid counts as empty like the host list reads it.
+    const nextBadge = parseBadge(badge)?.id ?? "";
+    if (
+      !inherit.includes(BADGE_KEY) &&
+      nextBadge !== (parseBadge(loadedBadge)?.id ?? "")
+    )
+      values[BADGE_KEY] = nextBadge;
+    const nextBadgeColor = normalizeColor(badgeColor) ?? "";
+    if (
+      !inherit.includes(BADGE_COLOR_KEY) &&
+      nextBadgeColor !== (normalizeColor(loadedBadgeColor) ?? "")
+    )
+      values[BADGE_COLOR_KEY] = nextBadgeColor;
     return values;
   };
 
@@ -192,11 +228,13 @@ function ChangeIconDialog({
           </DialogTitle>
           <DialogDescription>{t("dialog.description")}</DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-3 min-w-0">
+        <div className="flex flex-col gap-3 min-w-0 max-h-[65vh] overflow-y-auto pr-1">
           <div className="flex items-center justify-between gap-2 min-w-0">
             <IconPreview
               value={resolved?.icon.id ?? ""}
               color={resolved?.color}
+              badge={hasBase ? badge : ""}
+              badgeColor={badgeColor}
             />
             {defaultToggle(ICON_KEY, t("dialog.useDefaultIcon"))}
           </div>
@@ -227,12 +265,46 @@ function ChangeIconDialog({
           </div>
           <ColorPicker
             value={color}
+            icon={hasBase ? resolved!.icon : null}
             disabled={saving}
             onChange={(next) => {
               own(COLOR_KEY);
               setColor(next);
             }}
           />
+          <div className="flex flex-col gap-3 min-w-0 border-t border-border pt-3">
+            <span className="text-sm font-medium">{t("layers.title")}</span>
+            {!hasBase && (
+              <p className="text-xs text-muted-foreground">
+                {t("layers.needIcon")}
+              </p>
+            )}
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="text-xs">{t("dialog.badge")}</span>
+              {defaultToggle(BADGE_KEY, t("dialog.useDefaultBadge"))}
+            </div>
+            <BadgeEditor
+              value={badge}
+              disabled={saving || !hasBase}
+              onChange={(next) => {
+                own(BADGE_KEY);
+                setBadge(next);
+              }}
+            />
+            <div className="flex items-center justify-between gap-2 min-w-0">
+              <span className="text-xs">{t("dialog.badgeColor")}</span>
+              {defaultToggle(BADGE_COLOR_KEY, t("dialog.useDefaultBadgeColor"))}
+            </div>
+            <ColorPicker
+              value={badgeColor}
+              disabled={saving || !hasBase}
+              themeLabel={t("layers.badgeThemeColor")}
+              onChange={(next) => {
+                own(BADGE_COLOR_KEY);
+                setBadgeColor(next);
+              }}
+            />
+          </div>
         </div>
         <DialogFooter className="gap-2">
           <Button

@@ -35,6 +35,7 @@ function entity() {
 
 const resolveId = async () => null;
 const wire = (extra: Record<string, unknown> = {}) => ({
+  syncId: "a",
   name: "Logo",
   kind: "svg",
   data: SVG,
@@ -119,6 +120,12 @@ describe("sync deserialize", () => {
         incoming(row),
         JSON.stringify(row).slice(0, 60),
       ).rejects.toThrow();
+    }
+  });
+
+  it("rejects a row without a usable syncId", async () => {
+    for (const syncId of [undefined, null, "", 7, {}]) {
+      await expect(incoming(wire({ syncId }))).rejects.toThrow(/syncId/);
     }
   });
 

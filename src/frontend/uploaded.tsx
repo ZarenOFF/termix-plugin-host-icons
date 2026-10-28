@@ -149,7 +149,7 @@ export function UploadedPack({
     if (!picked) return;
     try {
       const read = await readIconFile(picked);
-      setDraft({ ...read, tint: read.kind === "svg" });
+      setDraft({ ...read, tint: false });
     } catch (error) {
       fail(error);
     }
@@ -304,9 +304,6 @@ export function UploadedPack({
             />
             <span>{t("custom.recolor")}</span>
           </div>
-          <p className="text-[11px] text-muted-foreground">
-            {t("custom.recolorHint")}
-          </p>
           <div className="flex items-center gap-2">
             <Button
               type="button"

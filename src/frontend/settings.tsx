@@ -5,7 +5,15 @@ import {
 } from "@termix-ssh/plugin-sdk/frontend";
 import { Input } from "@termix-ssh/plugin-sdk/ui";
 import { ColorPicker, IconPicker, IconPreview } from "./IconPicker";
-import { COLOR_KEY, ICON_KEY } from "./icons";
+import {
+  BADGE_COLOR_KEY,
+  BADGE_KEY,
+  COLOR_KEY,
+  ICON_KEY,
+  findIcon,
+} from "./icons";
+import { useLibrary } from "./library";
+import { BadgeEditor } from "./layers";
 import {
   DEFAULT_SIZE,
   MAX_SIZE,
@@ -18,6 +26,8 @@ import {
 export const ICON_FIELD_COMPONENT = "icon-picker";
 export const COLOR_FIELD_COMPONENT = "icon-color";
 export const SIZE_FIELD_COMPONENT = "icon-size";
+export const BADGE_FIELD_COMPONENT = "icon-badge";
+export const BADGE_COLOR_FIELD_COMPONENT = "icon-badge-color";
 
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 
@@ -60,7 +70,14 @@ export function IconField({
     <FieldRow
       label={t("settings.host.icon.label")}
       description={t("settings.host.icon.description")}
-      aside={<IconPreview value={icon} color={color} />}
+      aside={
+        <IconPreview
+          value={icon}
+          color={color}
+          badge={text(values[BADGE_KEY])}
+          badgeColor={text(values[BADGE_COLOR_KEY])}
+        />
+      }
     >
       <IconPicker
         value={icon}
@@ -72,7 +89,48 @@ export function IconField({
   );
 }
 
-export function ColorField({
+/** A field that holds one color, under its own key and texts. */
+function ColorKeyField(
+  key: string,
+  textKey: string,
+  forIcon: boolean,
+): (props: SettingsComponentProps) => ReactNode {
+  return function ColorKeyFieldComponent({
+    values,
+    setValue,
+    running,
+  }: SettingsComponentProps) {
+    const { t } = useTranslation();
+    useLibrary();
+    // The icon of the same scope: this host, or the default being edited.
+    const icon = forIcon ? findIcon(text(values[ICON_KEY])) : undefined;
+    return (
+      <FieldRow
+        label={t(`settings.host.${textKey}.label`)}
+        description={t(`settings.host.${textKey}.description`)}
+      >
+        <ColorPicker
+          value={text(values[key])}
+          disabled={!running}
+          icon={icon ?? null}
+          themeLabel={forIcon ? undefined : t("picker.themeColor")}
+          onChange={(color) => setValue(key, color)}
+        />
+      </FieldRow>
+    );
+  };
+}
+
+export const ColorField = ColorKeyField(COLOR_KEY, "color", true);
+/** The corner badge's circle: a color, or empty for the theme chip. */
+export const BadgeColorField = ColorKeyField(
+  BADGE_COLOR_KEY,
+  "badgeColor",
+  false,
+);
+
+/** The corner badge: see BadgeEditor. */
+export function BadgeField({
   values,
   setValue,
   running,
@@ -80,13 +138,13 @@ export function ColorField({
   const { t } = useTranslation();
   return (
     <FieldRow
-      label={t("settings.host.color.label")}
-      description={t("settings.host.color.description")}
+      label={t("settings.host.badge.label")}
+      description={t("settings.host.badge.description")}
     >
-      <ColorPicker
-        value={text(values[COLOR_KEY])}
+      <BadgeEditor
+        value={text(values[BADGE_KEY])}
         disabled={!running}
-        onChange={(color) => setValue(COLOR_KEY, color)}
+        onChange={(badge) => setValue(BADGE_KEY, badge)}
       />
     </FieldRow>
   );

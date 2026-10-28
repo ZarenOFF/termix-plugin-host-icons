@@ -33,7 +33,15 @@
       },
       "color": {
         "label": "Icon color",
-        "description": "Theme color follows the text color of the list."
+        "description": "The color of the icon in the Hosts list."
+      },
+      "badge": {
+        "label": "Corner badge",
+        "description": "A small circle at the bottom right of the icon, with one or two characters or just a dot."
+      },
+      "badgeColor": {
+        "label": "Badge color",
+        "description": "Color of the badge circle. Theme color follows the text color of the list."
       }
     }
   },
@@ -55,8 +63,16 @@
     "none": "No icon",
     "empty": "No icons match.",
     "themeColor": "Theme color",
+    "themeColorHint": "Theme color follows the text color of the list.",
+    "ownColors": "Own colors",
+    "ownColorsHint": "The icon keeps its own colors. A color repaints it entirely.",
+    "noColor": "No color",
+    "noColorHint": "Icons from the built-in sets, logos and text follow the text color of the list. Uploaded multicolor icons keep their own colors.",
+    "colorInput": "Pick a color",
+    "hexInput": "Hex color",
     "noIconPreview": "No icon",
-    "unknown": "This host has an icon this version does not know. It shows as {{fallback}} until you pick another one."
+    "unknown": "This host has an icon this version does not know. It shows as {{fallback}} until you pick another one.",
+    "badgePlaceholder": "1 or 2 characters"
   },
   "rules": {
     "empty": "No rules yet. Add one to give hosts an icon by tag or name.",
@@ -201,7 +217,11 @@
     "useDefaultColor": "Use the default color",
     "followsDefault": "Follows the default after saving",
     "ruleNote": "Rule \"{{rule}}\" gives this host an icon while it has none.",
-    "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon or color shown for this host."
+    "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon or color shown for this host.",
+    "badge": "Corner badge",
+    "badgeColor": "Badge color",
+    "useDefaultBadge": "Use the default badge",
+    "useDefaultBadgeColor": "Use the default badge color"
   },
   "custom": {
     "upload": "Upload icon",
@@ -211,7 +231,6 @@
     "namePlaceholder": "Icon name",
     "nameLabel": "Name of the new icon",
     "recolor": "Monochrome icon",
-    "recolorHint": "Without a chosen color, draws the icon in the theme color like the built-in icons. Off keeps the colors of the file. A chosen color always paints the whole icon.",
     "add": "Add to library",
     "cancel": "Cancel",
     "renameLabel": "Name of {{name}}",
@@ -248,5 +267,13 @@
       "title": "Manage uploaded icons",
       "description": "Rename or delete icons that other people uploaded."
     }
+  },
+  "layers": {
+    "title": "Layers",
+    "needIcon": "Pick an icon first: the badge is drawn on top of it.",
+    "badgeNone": "None",
+    "badgeText": "Badge text",
+    "badgeThemeColor": "Theme badge color",
+    "badgeDot": "Dot"
   }
 }

@@ -158,13 +158,13 @@ describe("drawing text icons", () => {
     expect(new Set(ids).size).toBe(2);
   });
 
-  it("keeps mask ids distinct across separate roots", () => {
+  it("keeps mask ids distinct across separate roots, even for equal icons", () => {
     const a = render(<HostIcon icon={findIcon("text:plate:A")!} />);
     const b = render(<HostIcon icon={findIcon("text:plate:B")!} />);
     const same = render(<HostIcon icon={findIcon("text:plate:A")!} />);
     const id = (r: typeof a) => r.container.querySelector("mask")!.id;
     expect(id(a)).not.toBe(id(b));
-    expect(id(a)).toBe(id(same));
+    expect(id(a)).not.toBe(id(same));
   });
 
   it("squeezes wide labels into the box and leaves short ones alone", () => {

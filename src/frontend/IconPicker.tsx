@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "@termix-ssh/plugin-sdk/frontend";
-import { HexColorPicker, Input, Segmented } from "@termix-ssh/plugin-sdk/ui";
+import { Input, Segmented } from "@termix-ssh/plugin-sdk/ui";
 import { HostIcon } from "./HostIcon";
+import { LayeredIcon } from "./LayeredIcon";
 import { useUsedTextIcons } from "./used-text";
 import {
   BRAND_GROUPS,
@@ -15,6 +16,7 @@ import {
   clampTextLabel,
   normalizeColor,
   parseTextIcon,
+  readLayers,
   textIconId,
   type TextIconDef,
   type TextIconStyle,
@@ -281,49 +283,138 @@ export function IconPicker({
   );
 }
 
+const SWATCHES = [
+  "#f59145",
+  "#ef4444",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#6366f1",
+  "#a855f7",
+  "#ec4899",
+  "#6b7280",
+];
+
+/** What the native color input shows while no color is chosen. */
+const NEUTRAL_COLOR = "#6b7280";
+
 /**
- * Termix's own folder color picker, plus a "Theme color" choice that clears
- * the value so the icon follows the text color.
+ * A color picker like Termix's folder one (native input, hex field,
+ * swatches), plus a choice that clears the value. Its hex field stays empty
+ * while no color is chosen, which the SDK's own picker cannot do.
+ *
+ * `icon` is the icon the color is for, because what the clearing choice does
+ * depends on it. Pass null when it is not known (a default for many hosts,
+ * no icon). `themeLabel` replaces the choice's text for a color that is not
+ * the icon's; it has no hint and no preview.
  */
 export function ColorPicker({
   value,
   onChange,
   disabled = false,
+  themeLabel,
+  icon = null,
 }: {
   value: string;
   onChange: (color: string) => void;
   disabled?: boolean;
+  /** Text of the choice that clears the value. */
+  themeLabel?: string;
+  icon?: HostIconDef | null;
 }) {
   const { t } = useTranslation();
   const themed = normalizeColor(value) === null;
+  // A stand in for an icon the library has not loaded is not known yet.
+  const known = icon && !(isCustomIcon(icon) && icon.pending) ? icon : null;
+  const kind =
+    known === null
+      ? "none"
+      : isCustomIcon(known) && !known.tint
+        ? "own"
+        : "theme";
+  const keys = {
+    none: ["picker.noColor", "picker.noColorHint"],
+    own: ["picker.ownColors", "picker.ownColorsHint"],
+    theme: ["picker.themeColor", "picker.themeColorHint"],
+  }[kind];
+  const typed = value.trim();
+  const native = /^#[0-9a-f]{6}$/i.test(typed) ? typed : NEUTRAL_COLOR;
   return (
     <fieldset disabled={disabled} className="flex flex-col gap-2 min-w-0">
       <button
         type="button"
         aria-pressed={themed}
         onClick={() => onChange("")}
-        className={`self-start h-7 px-2 border text-[11px] transition-colors ${themed ? TILE_ON : TILE_OFF}`}
+        className={`self-start h-7 px-2 border text-[11px] transition-colors flex items-center gap-1.5 ${themed ? TILE_ON : TILE_OFF}`}
       >
-        {t("picker.themeColor")}
+        {themeLabel === undefined && known && (
+          <span data-testid="no-color-preview" className="flex shrink-0">
+            <HostIcon icon={known} color={null} className="size-4" />
+          </span>
+        )}
+        {themeLabel ?? t(keys[0])}
       </button>
-      <HexColorPicker value={value} onChange={onChange} />
+      {themeLabel === undefined && (
+        <span className="text-xs text-muted-foreground leading-snug">
+          {t(keys[1])}
+        </span>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          type="color"
+          value={native}
+          aria-label={t("picker.colorInput")}
+          onChange={(event) => onChange(event.target.value)}
+          className="h-8 w-10 shrink-0 cursor-pointer rounded-none border border-input bg-transparent p-0.5"
+        />
+        <Input
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+          placeholder="#rrggbb"
+          aria-label={t("picker.hexInput")}
+          className="font-mono uppercase"
+          maxLength={7}
+        />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {SWATCHES.map((swatch) => (
+          <button
+            key={swatch}
+            type="button"
+            aria-label={swatch}
+            onClick={() => onChange(swatch)}
+            className={`size-6 rounded-none border transition-all ${value.toLowerCase() === swatch ? "ring-2 ring-offset-1 ring-offset-background ring-white/60" : "opacity-80 hover:opacity-100"}`}
+            style={{ backgroundColor: swatch }}
+          />
+        ))}
+      </div>
     </fieldset>
   );
 }
 
-/** The chosen icon, large, with its name: what the host row will show. */
+/**
+ * The chosen icon, large, with its name: what the host row will show,
+ * including its corner badge when given. The layers are the stored setting
+ * values; invalid ones are ignored like the host list does.
+ */
 export function IconPreview({
   value,
   color,
+  badge,
+  badgeColor,
 }: {
   value: string;
   color?: string | null;
+  badge?: string;
+  badgeColor?: string;
 }) {
   const { t } = useTranslation();
   useLibrary();
+  const layers = readLayers({ badge, badgeColor });
   if (!value) {
     return (
-      <span className="text-xs text-muted-foreground">
+      <span className="flex items-center gap-2 text-xs text-muted-foreground">
         {t("picker.noIconPreview")}
       </span>
     );
@@ -331,7 +422,13 @@ export function IconPreview({
   const icon = findIcon(value) ?? findIcon(FALLBACK_ICON_ID)!;
   return (
     <span className="flex items-center gap-2 text-xs">
-      <HostIcon icon={icon} color={normalizeColor(color)} className="size-5" />
+      <LayeredIcon
+        icon={icon}
+        color={normalizeColor(color)}
+        badge={layers.badge}
+        badgeColor={layers.badgeColor}
+        className="size-5"
+      />
       {isCustomIcon(icon) && icon.pending ? null : iconLabel(icon, t)}
     </span>
   );

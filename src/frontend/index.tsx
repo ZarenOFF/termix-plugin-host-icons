@@ -15,6 +15,10 @@ import { createPreferences, createPreferencesSync } from "./preferences";
 import { usedTextIcons } from "./used-text";
 import { RULES_FIELD_COMPONENT, RulesField } from "./rules-editor";
 import {
+  BADGE_COLOR_FIELD_COMPONENT,
+  BADGE_FIELD_COMPONENT,
+  BadgeColorField,
+  BadgeField,
   COLOR_FIELD_COMPONENT,
   ColorField,
   ICON_FIELD_COMPONENT,
@@ -28,6 +32,8 @@ export const PREFERENCES_ACTION_ID = "host-icons.preferences";
 export function activate(app: TermixApp): void {
   app.registerSettingsComponent(ICON_FIELD_COMPONENT, IconField);
   app.registerSettingsComponent(COLOR_FIELD_COMPONENT, ColorField);
+  app.registerSettingsComponent(BADGE_FIELD_COMPONENT, BadgeField);
+  app.registerSettingsComponent(BADGE_COLOR_FIELD_COMPONENT, BadgeColorField);
   app.registerSettingsComponent(RULES_FIELD_COMPONENT, RulesField);
   app.registerSettingsComponent(SIZE_FIELD_COMPONENT, SizeField);
 

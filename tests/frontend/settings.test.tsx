@@ -45,8 +45,13 @@ async function renderField(
 describe("manifest host settings", () => {
   const fields = manifest.contributes?.settings?.host?.fields ?? [];
 
-  it("declares the icon and color as custom, defaultable fields", () => {
-    expect(fields.map((field) => field.key)).toEqual(["icon", "color"]);
+  it("declares the icon, color and layers as custom, defaultable fields", () => {
+    expect(fields.map((field) => field.key)).toEqual([
+      "icon",
+      "color",
+      "badge",
+      "badgeColor",
+    ]);
     for (const field of fields) {
       expect(field.type).toBe("custom");
       expect(field.default).toBe("");
@@ -288,13 +293,16 @@ describe("icon packs", () => {
 describe("color field", () => {
   it("stores a typed color", async () => {
     const { element, setValue } = await renderField("icon-color");
-    const input = within(element).getByPlaceholderText("#6b7280");
+    const input = within(element).getByLabelText(locales.picker.hexInput);
     fireEvent.change(input, { target: { value: "#3b82f6" } });
     expect(setValue).toHaveBeenCalledWith("color", "#3b82f6");
   });
 
   it("goes back to the theme color", async () => {
-    const { setValue } = await renderField("icon-color", { color: "#ef4444" });
+    const { setValue } = await renderField("icon-color", {
+      icon: "cloud",
+      color: "#ef4444",
+    });
     const theme = screen.getByRole("button", {
       name: locales.picker.themeColor,
     });
@@ -304,12 +312,27 @@ describe("color field", () => {
   });
 
   it("shows the theme color as chosen when none is set", async () => {
-    await renderField("icon-color");
+    await renderField("icon-color", { icon: "cloud" });
     expect(
       screen
         .getByRole("button", { name: locales.picker.themeColor })
         .getAttribute("aria-pressed"),
     ).toBe("true");
+  });
+});
+
+describe("color field without a known icon", () => {
+  it("says No color and shows an empty hex field", async () => {
+    const { element } = await renderField("icon-color");
+    expect(
+      screen
+        .getByRole("button", { name: locales.picker.noColor })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    const hex = within(element).getByLabelText(
+      locales.picker.hexInput,
+    ) as HTMLInputElement;
+    expect(hex.value).toBe("");
   });
 });
 

@@ -540,7 +540,7 @@ describe("uploaded tab of the picker", () => {
     expect(screen.getByText(locales.custom.empty)).toBeTruthy();
   });
 
-  it("uploads an SVG with recolor on, then selects it", async () => {
+  it("uploads an SVG with recolor off by default, then selects it", async () => {
     const { post, onChange, get } = await renderPicker([]);
     openTab();
     await pickFile(new File([SVG], "My Logo.svg", { type: "image/svg+xml" }));
@@ -551,6 +551,8 @@ describe("uploaded tab of the picker", () => {
     const recolor = screen.getByRole("checkbox", {
       name: locales.custom.recolor,
     });
+    expect(recolor.getAttribute("aria-checked")).toBe("false");
+    fireEvent.click(recolor);
     expect(recolor.getAttribute("aria-checked")).toBe("true");
 
     fireEvent.change(name, { target: { value: "Logo" } });

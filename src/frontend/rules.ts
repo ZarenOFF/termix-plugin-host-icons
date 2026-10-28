@@ -17,6 +17,7 @@ import {
   PLUGIN_ID,
   findIcon,
   normalizeColor,
+  readLayers,
   resolveIconForHost,
   type ResolvedHostIcon,
 } from "./icons";
@@ -183,7 +184,7 @@ export interface HostAppearance {
 /**
  * What a host row shows. The host's own icon, which already includes the
  * folder, user and server defaults, is the start; the first rule that
- * applies then changes it. Color: a rule that overrides sets its color (an
+ * applies then changes it. The badge always stays the host's. Color: a rule that overrides sets its color (an
  * empty one keeps the host's), one that does not yields to the host's color.
  */
 export function resolveAppearance(
@@ -206,7 +207,9 @@ export function resolveAppearance(
       ? { resolved: { ...own, color }, rule }
       : { resolved: own, rule: null };
   }
-  return { resolved: { icon, color, known: true }, rule };
+  // The badge is the host's own, drawn over the rule's icon too.
+  const layers = readLayers(host.pluginSettings?.[PLUGIN_ID]);
+  return { resolved: { icon, color, known: true, ...layers }, rule };
 }
 
 export function sameRuleLists(

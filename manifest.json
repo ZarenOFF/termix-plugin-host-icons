@@ -1,7 +1,7 @@
 {
   "id": "host-icons",
   "name": "Host Icons",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Give each host in the Hosts list its own icon and color.",
   "author": {
     "name": "ZarenOFF",
@@ -100,6 +100,22 @@
             "key": "color",
             "type": "custom",
             "component": "icon-color",
+            "default": "",
+            "defaultable": true,
+            "defaultLevels": ["admin", "user", "folder"]
+          },
+          {
+            "key": "badge",
+            "type": "custom",
+            "component": "icon-badge",
+            "default": "",
+            "defaultable": true,
+            "defaultLevels": ["admin", "user", "folder"]
+          },
+          {
+            "key": "badgeColor",
+            "type": "custom",
+            "component": "icon-badge-color",
             "default": "",
             "defaultable": true,
             "defaultLevels": ["admin", "user", "folder"]

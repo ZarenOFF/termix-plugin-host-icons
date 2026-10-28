@@ -13,8 +13,10 @@
  * --host-icons-scale is the user's Icon size setting (1 = 100%), set on the
  * root by preferences.tsx. Every size below is multiplied by it.
  */
-[data-host-icon-position="small"] :is(svg, [data-custom-icon]),
-[data-host-icon-position="after"] :is(svg, [data-custom-icon]) {
+[data-host-icon-position="small"]
+  > :is(svg, [data-custom-icon], [data-host-icon-layers]),
+[data-host-icon-position="after"]
+  > :is(svg, [data-custom-icon], [data-host-icon-layers]) {
   width: calc(0.875rem * var(--host-icons-scale, 1));
   height: calc(0.875rem * var(--host-icons-scale, 1));
 }
@@ -59,14 +61,55 @@ div:has(> [data-drag-label] > [data-host-icon-position="large"]) {
 /*
  * Taller than a bare name row; the row's own padding takes the overhang.
  * An uploaded icon is an img or a masked span, marked data-custom-icon,
- * and is sized like an svg.
+ * and is sized like an svg. So is the wrapper of an icon with a corner badge
+ * (data-host-icon-layers): only the badge's direct child is sized here, the
+ * layers inside fill the wrapper by themselves.
  */
 [data-drag-label]
   > [data-host-icon-position="large"]
-  :is(svg, [data-custom-icon]) {
+  > :is(svg, [data-custom-icon], [data-host-icon-layers]) {
   width: auto;
   height: calc(1.375rem * var(--host-icons-scale, 1));
   aspect-ratio: 1;
+}
+
+/*
+ * The corner badge is a circle of radius 7.25 on the 24 unit box, centered at
+ * (16.75, 16.75), so it touches the corner. The icon under it is cut by a
+ * concentric hole of radius 8.25 (1 unit of air), a mask rather than a painted
+ * outline, so it works on any row background, hovered or selected. Percent of
+ * the box: 16.75 / 24 = 69.79, 8.25 / 24 = 34.38. The last 3% of the radius
+ * is a soft edge. A dot badge is radius 5.5 at (18, 18), the hole 6.5: 75
+ * and 27.08.
+ */
+[data-host-icon-layers][data-has-badge] > [data-layer="art"] {
+  -webkit-mask-image: radial-gradient(
+    ellipse 34.38% 34.38% at 69.79% 69.79%,
+    transparent 0,
+    transparent 97%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 34.38% 34.38% at 69.79% 69.79%,
+    transparent 0,
+    transparent 97%,
+    #000 100%
+  );
+}
+
+[data-host-icon-layers][data-badge-kind="dot"] > [data-layer="art"] {
+  -webkit-mask-image: radial-gradient(
+    ellipse 27.08% 27.08% at 75% 75%,
+    transparent 0,
+    transparent 97%,
+    #000 100%
+  );
+  mask-image: radial-gradient(
+    ellipse 27.08% 27.08% at 75% 75%,
+    transparent 0,
+    transparent 97%,
+    #000 100%
+  );
 }
 
 /*

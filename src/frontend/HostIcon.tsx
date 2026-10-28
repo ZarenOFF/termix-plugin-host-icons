@@ -1,4 +1,4 @@
-import { useMemo, type CSSProperties } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import { PluginIcon } from "@termix-ssh/plugin-sdk/ui";
 import {
   isBrandIcon,
@@ -18,12 +18,24 @@ export function HostIcon({
   icon,
   color,
   className,
+  fit = false,
 }: {
   icon: HostIconDef;
   color?: string | null;
   className?: string;
+  /**
+   * Fill the parent box exactly, by inline style, so no stylesheet decides
+   * the size. For the base of a LayeredIcon.
+   */
+  fit?: boolean;
 }) {
-  const style = color ? { color } : undefined;
+  const style: CSSProperties | undefined =
+    color || fit
+      ? {
+          ...(color ? { color } : {}),
+          ...(fit ? { display: "block", width: "100%", height: "100%" } : {}),
+        }
+      : undefined;
   if (isCustomIcon(icon)) {
     return (
       <CustomIcon
@@ -76,18 +88,28 @@ const WIDE = new Set([..."MWmwЖШЩЮжшщю"]);
 const NARROW = new Set([..."iljI1.,:;'!|"]);
 
 /** Estimated width of a bold label, in the same units as the box. */
-function textWidth(text: string, fontSize: number): number {
+export function textWidth(text: string, fontSize: number): number {
   let em = 0;
   for (const char of text)
     em += WIDE.has(char) ? 0.9 : NARROW.has(char) ? 0.35 : 0.62;
   return em * fontSize;
 }
 
-/** A short stable hash, safe in an id. */
-function hash(text: string): string {
-  let h = 5381;
-  for (let i = 0; i < text.length; i++) h = (h * 33) ^ text.charCodeAt(i);
-  return (h >>> 0).toString(36);
+let maskCount = 0;
+
+/**
+ * An id for one SVG mask, unique to this instance. Not derived from the
+ * content and not useId: ids are shared by the whole document, and Termix may
+ * draw badges in separate React roots, where useId values collide. Equal
+ * badges sharing an id is a bug too: when the first one sits in a display:none
+ * subtree (a collapsed folder, a closed tab) Chromium resolves url(#id) to
+ * its unrendered mask and the others lose the knockout. So a counter shared
+ * by the bundle hands out one id per instance.
+ */
+export function useMaskId(prefix: string): string {
+  const id = useRef<string | null>(null);
+  if (id.current === null) id.current = `${prefix}-${++maskCount}`;
+  return id.current;
 }
 
 /**
@@ -103,9 +125,7 @@ function TextIcon({
   className?: string;
   style?: CSSProperties;
 }) {
-  // Derived from the content, not useId: ids are shared by the whole
-  // document, and Termix may draw badges in separate React roots.
-  const maskId = `host-icon-${hash(icon.id)}`;
+  const maskId = useMaskId("host-icon");
   const count = [...icon.text].length;
   const plain = icon.style === "plain";
   const fontSize = (plain ? PLAIN_SIZE : FRAMED_SIZE)[count];

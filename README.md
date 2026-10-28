@@ -15,6 +15,7 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 - Defaults for a whole folder, for a user or for the whole server: hosts follow the default until they pick their own icon
 - **Change icon** in the host's right-click menu and in the command palette for a quick change, with **Use default** to follow the folder default again
 - **Automatic icons:** rules that give hosts an icon or a color by tag or by name, in a table you reorder by dragging
+- **Corner badge:** a 1 or 2 character label or a dot on the corner of the icon, with its own color, also available as a default
 - **Icon size** from 50% to 150%
 - English and Russian
 

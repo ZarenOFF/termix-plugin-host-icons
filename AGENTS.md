@@ -63,8 +63,8 @@ aren't obvious from the code, and anything that has bitten you before.
 - What it does: lets each host have an icon and a color, shown next to its name in the Hosts list.
 - Mostly frontend. Capabilities: `ui:surface`, `db:own`, `network:serve`. The backend only serves the shared
   library of uploaded icons (see "Uploaded icons"); everything else is frontend.
-- Storage: two host settings, `icon` (an id from `HOST_ICONS` in `src/frontend/icons.ts`) and `color`
-  (`#rrggbb` or empty for the theme color). Both are `custom` fields, so core stores whatever it is sent:
+- Storage: four host settings, `icon` (an id from `HOST_ICONS` in `src/frontend/icons.ts`) and `color`
+  (`#rrggbb` or empty for the theme color), plus `badge` and `badgeColor` (see "Corner badge"). All are `custom` fields, so core stores whatever it is sent:
   `resolveHostIcon` treats an unknown id as `FALLBACK_ICON_ID` and an invalid color as the theme color.
   They are defaultable (admin, user, folder). Core writes resolved defaults into each host's rows, so
   `host.pluginSettings["host-icons"]` already holds the effective value.
@@ -86,6 +86,18 @@ aren't obvious from the code, and anything that has bitten you before.
   macos, ios, netgear, asus, synology, qnap, dotnet, plex, netbsd, jfrog). Brand titles are not translated, group names are. `.tmxplug` packs only
   manifest, dist, locales, README, CHANGELOG, LICENSE and `NOTICE`, so the third party notices live in
   `NOTICE`; update it when a pack or version changes.
+- Corner badge: host settings `badge` (`text:<1 or 2 characters>`, `dot` or empty for none) and `badgeColor`
+  (`#rrggbb`, or empty for a theme colored chip with the label knocked out), `custom` and defaultable (admin,
+  user, folder) like `icon`. It is drawn only when the host has a base icon (its own or from a rule); rules do
+  not set badges. `LayeredIcon.tsx` wraps `HostIcon` only when a layer exists, so a plain icon renders as
+  before. The badge sits in the bottom right corner and is cut out of the base icon with a CSS mask hole, so it
+  reads on any row background. The label uses the inherited UI font and is centered with `dy`, not
+  `dominantBaseline`, which renders unevenly between browsers. The editors are in `src/frontend/layers.tsx`:
+  the "Layers" area of the Change icon dialog (own Use default per key, sent as `_inherit`) and the host
+  settings components `icon-badge` and `icon-badge-color`. Removed on purpose, don't bring them back: glyph
+  badges (Lucide glyphs at about 8px are unreadable), a ring around the icon (shrinking the base made logos
+  unrecognizable) and an environment stripe at the row's left edge (it collides with Classic Layout's own
+  `.host-status-stripe`).
 - Host list: `registerHostBadge`. Classic Layout draws badges after the name, pin and lock, and hides them
   when "Plugin badges" is off. `src/frontend/host-icons.css` moves our badge by its
   `data-host-icon-position`: `order: -1` for small, and for large the text column
@@ -142,12 +154,16 @@ aren't obvious from the code, and anything that has bitten you before.
   10 MB of data in all (POST answers 409 so GET stays bounded). `sanitize-svg.ts` parses with htmlparser2 (bundled,
   see `NOTICE`) and rebuilds the markup from an allowlist of elements and attributes; it drops script, style,
   foreignObject, image, animation, event attributes, comments and doctype, and keeps only local `#` references.
-  Never store the file as it came. The frontend loads the library into a store (`library.ts`) in the same
+  Never store the file as it came. The room check and the insert are not atomic, so POST re-counts after inserting
+  (`insertWithinLimits`) and deletes the new row by its syncId when over (409). Sync cannot: core does the insert, so a
+  racing push may pass the caps by a row. The frontend loads the library into a store (`library.ts`) in the same
   `shell.overlay` preferences component; before it loads a `custom:` id draws an empty slot, after it an unknown id
   draws the fallback. `HostIcon` draws them as an `<img>` with a data: URL or, tinted, a span with a CSS mask in
   `currentColor`, marked `data-custom-icon`. A host color always tints; without one only an icon with `tint` (shown as
   "Monochrome icon") is tinted, in the theme color, so a multicolor file keeps its colors; never inline SVG. So CSS in `host-icons.css` targets
-  `:is(svg, [data-custom-icon])`. The picker's Uploaded tab (`uploaded.tsx`) uploads, renames and deletes, and
+  `:is(svg, [data-custom-icon])`. `ColorPicker` names its empty-color choice by the icon it is given: "Own colors" for a
+  multicolor upload, "Theme color" for other known icons (with a preview), "No color" when the icon is unknown (defaults, rules
+  without an icon); the hex field is our own (the SDK's shows a gray placeholder) and stays empty. The picker's Uploaded tab (`uploaded.tsx`) uploads, renames and deletes, and
   refreshes the store after each change.
 - Sync: `ctx.sync.registerEntity` (type `icons`, in `src/backend/index.ts`; the wire name never changes) and
   `contributes.syncEntities`. Core needs an auto increment `id` and a `syncId` column, so the table has both and the

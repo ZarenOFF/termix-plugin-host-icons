@@ -28,12 +28,16 @@ export async function activate(ctx: PluginContext) {
     // A pushed row gets the same checks as an upload through the routes, and
     // the sanitized SVG is what is stored. Throwing rejects that row.
     deserialize: async (row) => {
+      // The public id of the icon: a row without one could not be found again.
+      const syncId = row.syncId;
+      if (typeof syncId !== "string" || syncId === "") {
+        throw new Error("syncId must be a non-empty string");
+      }
       // A SQLite desktop may send tint as 0 or 1.
       const tint = row.tint === 0 || row.tint === 1 ? row.tint === 1 : row.tint;
       const checked = checkIcon({ ...row, tint });
       if (checked.ok === false) throw new Error(checked.error);
       const { icon } = checked;
-      const syncId = typeof row.syncId === "string" ? row.syncId : undefined;
       const db = await ctx.db.client();
       if (
         !(await hasRoom(db, iconsTable, Buffer.byteLength(icon.data), syncId))

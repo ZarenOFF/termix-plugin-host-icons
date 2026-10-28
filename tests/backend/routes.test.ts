@@ -437,6 +437,22 @@ describe("POST /icons", () => {
     db.sqlite.prepare("DELETE FROM p_host_icons_icons").run();
     expect((await upload(alice, "fits")).id).toBeTruthy();
   });
+
+  it("counts stored data in bytes, not characters", async () => {
+    const alice = await serve("alice", USER);
+    const big = "ы".repeat(MAX_TOTAL_BYTES / 2 - 10);
+    db.sqlite
+      .prepare(
+        "INSERT INTO p_host_icons_icons (sync_id, name, kind, data, tint, uploaded_by) VALUES (?, ?, 'svg', ?, 0, 'alice')",
+      )
+      .run("00000000-0000-4000-8000-000000000001", "big", big);
+    const full = await alice("POST", "/icons", {
+      name: "tips it over",
+      kind: "svg",
+      data: SVG,
+    });
+    expect(full.status).toBe(409);
+  });
 });
 
 describe("PATCH /icons/:id", () => {

@@ -422,6 +422,7 @@ function RuleRow({
         {() => (
           <ColorPicker
             value={rule.color}
+            icon={icon ?? null}
             onChange={(next) => onChange({ color: next })}
           />
         )}

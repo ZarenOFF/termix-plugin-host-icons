@@ -18,6 +18,8 @@ export const PLUGIN_ID = "host-icons";
 /** Host setting keys, as declared in manifest.json. */
 export const ICON_KEY = "icon";
 export const COLOR_KEY = "color";
+export const BADGE_KEY = "badge";
+export const BADGE_COLOR_KEY = "badgeColor";
 
 /** Shown when a host names an icon this version does not know. */
 export const FALLBACK_ICON_ID = "server";
@@ -437,6 +439,65 @@ export const HOST_ICONS: readonly LucideIconDef[] = [
   { id: "heart", lucide: "Heart", group: "other", keywords: ["like"] },
 ];
 
+/** Longest label of a corner badge, in code points. */
+export const BADGE_TEXT_MAX_LENGTH = 2;
+
+const BADGE_TEXT_PREFIX = "text:";
+
+/** The stored value of a badge that is a plain dot with no label. */
+export const BADGE_DOT_ID = "dot";
+
+/** A corner badge: a short label or a plain dot. */
+export type BadgeDef =
+  | {
+      /** The canonical stored value: "text:<label>". */
+      id: string;
+      kind: "text";
+      /** 1 or 2 code points. */
+      text: string;
+    }
+  | {
+      /** The stored value, BADGE_DOT_ID. */
+      id: typeof BADGE_DOT_ID;
+      kind: "dot";
+    };
+
+/**
+ * The stored value for a text badge, or null when the label is empty (after
+ * trimming) or longer than two code points.
+ */
+export function badgeTextId(label: string): string | null {
+  const text = label.trim();
+  const length = [...text].length;
+  if (length < 1 || length > BADGE_TEXT_MAX_LENGTH) return null;
+  return `${BADGE_TEXT_PREFIX}${text}`;
+}
+
+/** Cuts a badge label to its first two code points. */
+export function clampBadgeLabel(label: string): string {
+  return [...label].slice(0, BADGE_TEXT_MAX_LENGTH).join("");
+}
+
+/**
+ * Reads a stored badge value: "text:<label>" (1 or 2 code points) or "dot".
+ * The field is a custom one, so core stores whatever it is sent; anything
+ * else is no badge.
+ */
+export function parseBadge(value: unknown): BadgeDef | null {
+  if (typeof value !== "string") return null;
+  const id = value.trim();
+  if (id === BADGE_DOT_ID) return { id: BADGE_DOT_ID, kind: "dot" };
+  if (!id.startsWith(BADGE_TEXT_PREFIX)) return null;
+  const canonical = badgeTextId(id.slice(BADGE_TEXT_PREFIX.length));
+  return canonical
+    ? {
+        id: canonical,
+        kind: "text",
+        text: canonical.slice(BADGE_TEXT_PREFIX.length),
+      }
+    : null;
+}
+
 const BY_ID = new Map<string, HostIconDef>(
   [...HOST_ICONS, ...BRAND_ICONS].map((icon) => [icon.id, icon]),
 );
@@ -466,11 +527,38 @@ export function normalizeColor(value: unknown): string | null {
   return null;
 }
 
-export interface ResolvedHostIcon {
+/**
+ * The extra layers on top of a host's base icon. Each is left out (not null)
+ * when the host has none, so an icon without layers compares equal to one
+ * made before layers existed.
+ */
+export interface IconLayers {
+  /** The corner badge at the bottom right. */
+  badge?: BadgeDef;
+  /** "#rrggbb" of the badge circle. Without it the badge is a theme chip. */
+  badgeColor?: string;
+}
+
+export interface ResolvedHostIcon extends IconLayers {
   icon: HostIconDef;
   color: string | null;
   /** False when the stored id was unknown and the fallback stands in. */
   known: boolean;
+}
+
+/**
+ * The layers stored in a host's settings. Whether they are drawn is decided
+ * by the caller: only a host with a base icon shows them.
+ */
+export function readLayers(settings: unknown): IconLayers {
+  if (!settings || typeof settings !== "object") return {};
+  const values = settings as Record<string, unknown>;
+  const badge = parseBadge(values[BADGE_KEY]);
+  const badgeColor = normalizeColor(values[BADGE_COLOR_KEY]);
+  return {
+    ...(badge ? { badge } : {}),
+    ...(badge && badgeColor ? { badgeColor } : {}),
+  };
 }
 
 /**
@@ -488,6 +576,7 @@ export function resolveHostIcon(settings: unknown): ResolvedHostIcon | null {
     icon: icon ?? BY_ID.get(FALLBACK_ICON_ID)!,
     color: normalizeColor(values[COLOR_KEY]),
     known: !!icon,
+    ...readLayers(values),
   };
 }
 

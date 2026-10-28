@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0
+
+### Added
+
+- A corner badge on the icon with one or two characters or a dot, in its own color, such as R1 on a database replica or a dot on a host that needs attention. It has its own default per folder, user and server, so a folder can give all its hosts a badge while every host keeps its own icon
+
+### Changed
+
+- The option for no color now says what it does for the chosen icon, such as Own colors for a multicolor uploaded icon, and shows a preview of the icon without a color
+- Monochrome icon is now off by default when uploading an SVG, so an uploaded icon keeps the colors of its file unless you turn it on
+
+### Fixed
+
+- The 10 MB limit of the uploaded icon library now counts bytes on SQLite and PostgreSQL, not characters
+- Uploads at the same time can no longer push the icon library past its limit of 500 icons or 10 MB
+
 ## 0.3.0
 
 Updating asks an admin to approve two new capabilities, database and routes, which the shared icon library needs.
