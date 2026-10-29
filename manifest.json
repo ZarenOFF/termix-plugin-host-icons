@@ -1,7 +1,7 @@
 {
   "id": "host-icons",
   "name": "Host Icons",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Give each host in the Hosts list its own icon and color.",
   "author": {
     "name": "ZarenOFF",
@@ -19,7 +19,7 @@
     "Large icon left of the host, or small before or after the name, at the size you like",
     "Text icons: a short label such as DB or K8S, as a frame, a plate or plain text",
     "Upload your own SVG or PNG icons to a library shared with everyone",
-    "Automatic icons for hosts with a tag or a name you choose"
+    "Automatic icons for hosts by tag, name or regular expression"
   ],
   "env": [],
   "engine": {
@@ -45,6 +45,12 @@
     ],
     "settings": {
       "user": [
+        {
+          "key": "help",
+          "type": "custom",
+          "component": "icon-help",
+          "default": ""
+        },
         {
           "key": "position",
           "type": "select",
@@ -84,6 +90,12 @@
           "type": "custom",
           "component": "icon-rules",
           "default": []
+        },
+        {
+          "key": "library",
+          "type": "custom",
+          "component": "icon-library",
+          "default": ""
         }
       ],
       "host": {

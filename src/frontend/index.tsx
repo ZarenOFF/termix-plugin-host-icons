@@ -12,7 +12,7 @@ import {
 } from "./change-icon";
 import { library } from "./library";
 import { createPreferences, createPreferencesSync } from "./preferences";
-import { usedTextIcons } from "./used-text";
+import { usedIcons, usedTextIcons } from "./used-text";
 import { RULES_FIELD_COMPONENT, RulesField } from "./rules-editor";
 import {
   BADGE_COLOR_FIELD_COMPONENT,
@@ -22,10 +22,13 @@ import {
   COLOR_FIELD_COMPONENT,
   ColorField,
   ICON_FIELD_COMPONENT,
+  LIBRARY_FIELD_COMPONENT,
+  LibraryField,
   IconField,
   SIZE_FIELD_COMPONENT,
   SizeField,
 } from "./settings";
+import { HELP_FIELD_COMPONENT, HelpField } from "./help";
 
 export const PREFERENCES_ACTION_ID = "host-icons.preferences";
 
@@ -36,6 +39,8 @@ export function activate(app: TermixApp): void {
   app.registerSettingsComponent(BADGE_COLOR_FIELD_COMPONENT, BadgeColorField);
   app.registerSettingsComponent(RULES_FIELD_COMPONENT, RulesField);
   app.registerSettingsComponent(SIZE_FIELD_COMPONENT, SizeField);
+  app.registerSettingsComponent(LIBRARY_FIELD_COMPONENT, LibraryField);
+  app.registerSettingsComponent(HELP_FIELD_COMPONENT, HelpField);
 
   const preferences = createPreferences();
   app.registerSlotContribution(OVERLAY_SLOT, {
@@ -79,4 +84,5 @@ export function activate(app: TermixApp): void {
   app.onDispose(picker.close);
   app.onDispose(library.reset);
   app.onDispose(usedTextIcons.reset);
+  app.onDispose(usedIcons.reset);
 }

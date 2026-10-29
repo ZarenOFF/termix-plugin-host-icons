@@ -113,6 +113,42 @@ div:has(> [data-drag-label] > [data-host-icon-position="large"]) {
 }
 
 /*
+ * The picker draws icons at the size the list does: --host-icons-base is the
+ * list's icon size for the user's position, set on the root by
+ * preferences.tsx, and the scale applies on top. A tile grows with its icon,
+ * and a grid has 8 columns, fewer when that many tiles of the size don't fit.
+ */
+[data-host-icons-grid],
+[data-host-icons-tile],
+[data-host-icons-actual] {
+  --host-icons-actual: calc(
+    var(--host-icons-base, 1.375rem) * var(--host-icons-scale, 1)
+  );
+  --host-icons-tile: calc(var(--host-icons-actual) + 0.75rem);
+}
+
+[data-host-icons-grid] {
+  display: grid;
+  gap: 0.375rem;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(max(var(--host-icons-tile), calc((100% - 7 * 0.375rem) / 8)), 1fr)
+  );
+}
+
+[data-host-icons-tile] {
+  min-width: var(--host-icons-tile);
+  min-height: var(--host-icons-tile);
+}
+
+[data-host-icons-actual]
+  > :is(svg, [data-custom-icon], [data-host-icon-layers]) {
+  width: var(--host-icons-actual);
+  height: var(--host-icons-actual);
+  flex-shrink: 0;
+}
+
+/*
  * Termix blurs the whole app behind a dialog. Every hover in our icon grid
  * then repaints over that blur, which made the Change icon dialog lag, so
  * our dialog drops the blur. A plain dim is cheap, and without the blur
@@ -121,4 +157,71 @@ div:has(> [data-drag-label] > [data-host-icon-position="large"]) {
 body:has([data-host-icons-dialog]) [data-slot="dialog-overlay"] {
   backdrop-filter: none;
   background-color: var(--overlay, rgb(0 0 0 / 0.5));
+}
+
+/*
+ * The search field of the picker: a magnifier on the left, drawn over the
+ * input, which takes padding for it.
+ */
+[data-host-icons-search] {
+  position: relative;
+}
+
+[data-host-icons-search] > svg {
+  position: absolute;
+  left: 0.625rem;
+  top: 50%;
+  width: 0.875rem;
+  height: 0.875rem;
+  transform: translateY(-50%);
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+[data-host-icons-search] > input {
+  padding-left: 2rem;
+}
+
+/*
+ * A section that opens and closes by its row height (0fr to 1fr). The inner
+ * wrapper clips while it is short. While closed the section is invisible,
+ * which keeps it out of the tab order and the accessibility tree; visibility
+ * changes only at the end of a close, so the close shows the content shrinking.
+ */
+[data-host-icons-collapse] {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 260ms ease,
+    visibility 260ms;
+}
+
+[data-host-icons-collapse][data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+
+/* The content fades and slides in while the row grows, so the opening reads. */
+[data-host-icons-collapse] > * {
+  min-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-0.375rem);
+  transition:
+    opacity 200ms ease,
+    transform 260ms ease;
+}
+
+[data-host-icons-collapse][data-open="true"] > * {
+  opacity: 1;
+  transform: none;
+  transition-delay: 60ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-host-icons-collapse],
+  [data-host-icons-collapse] > * {
+    transition: none;
+  }
 }

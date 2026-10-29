@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.5.0
+
+### Added
+
+- A Priority order line with an info icon at the top of the plugin's settings. Hover it, focus it with the keyboard, or click or tap it to read a short memo of the order: the host's own icon, color and badge, then the folder, user and server defaults, then rules
+- Rules can give a corner badge (None, Dot or one or two characters, with a badge color). Without Priority a badge rule fills in only a host that has no badge, and needs a host with an icon; with Priority it replaces the host's badge. Rules saved before keep working with no badge
+- Rules can match host names by a regular expression, such as `^(db|pg)-` for every name that starts with db- or pg-. A pattern that is not valid is marked red and the rule stays off until it is fixed
+- Manage uploaded icons opens in its own dialog, from the Manage button of the Uploaded chip and from a new Manage uploaded icons button in the plugin's settings (shown to users who may upload or manage icons). It has Upload on top, a search by name when there are more than 8 icons, and a list that scrolls inside the dialog, with one compact row per icon you may change (preview, name, rename and delete) in Termix's own layout
+
+### Changed
+
+- The rules table has one Look column instead of Icon, Color and Badge. Its button shows the rule's icon, color and badge together as the Hosts list draws them (a dashed square stands for the host's own icon when the rule gives none) and opens a dialog like Change icon to edit them. Save writes the look into the rule; Escape or the close button discards it
+- The Change icon dialog has no Use default buttons any more, so it looks like the host editor. It saves only the fields you changed; to send a field back to its folder, user or server default, use Use default in the host editor
+- Manage uploaded icons saves every name you changed when you press Done, press Escape or close the dialog (one request per icon). An empty or too long name is marked and keeps the dialog open; a refused rename shows a message and keeps the failed rows
+- The host editor's Host Icons section follows the Change icon dialog: a picker of the same fixed height, the preview row below it, a compact color row, and the badge as an animated Badge button; the badge color field opens and closes with it. Each setting is still its own field, so each keeps its own Use default
+- The icon picker is now one list instead of tabs: a search box, the chips All, Icons, Brands, Text and Uploaded, and one scrolling area. All starts with the icons used on your hosts and in your rules, and a search of 1 to 4 characters offers that text as a Frame, Plate or Plain icon. In the Text chip the search box still searches (it filters the text icons in use), and the label is its own field above the three styles; a search that fits as a label fills an empty one. The list has a fixed height, so changing chip no longer resizes the picker. The Upload and Manage controls sit at the top of the Uploaded chip
+- The Change icon dialog is more compact: the picker, then the live preview, the icon color, a Badge button that shows the badge (Badge: None, Dot, P) and opens its settings below the color with a short animation, and Save in the bottom right corner. The long hints and the Cancel button are gone (Escape or the close button still close it)
+- No icon is now the first tile of the picker, and the hint under the color picker is gone
+- The picker shows icons at the size the Hosts list draws them, for your icon position and size, so at 150% the picker shows them at 150% too
+- Uploading an icon no longer asks whether it is monochrome: an uploaded icon keeps the colors of its file, and a color chosen for the host paints it. Icons uploaded as monochrome before keep the theme color
+
 ## 0.4.0
 
 ### Added

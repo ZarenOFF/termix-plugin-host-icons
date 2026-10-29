@@ -156,4 +156,26 @@ describe("change icon dialog preview matches the Hosts list", () => {
     await openDialog(bare, [prodRule]);
     expect(preview(locales.icons.database).color).toBe("rgb(255, 0, 0)");
   });
+
+  const previewBadge = () =>
+    screen
+      .getByTestId("dialog-preview")
+      .querySelector("[data-host-icon-layers]")
+      ?.getAttribute("data-badge") ?? null;
+
+  it("shows the badge a rule gives a host without one", async () => {
+    await openDialog(bare, [{ ...prodRule, badge: "dot" }]);
+    expect(previewBadge()).toBe("dot");
+  });
+
+  it("shows an overriding rule's badge over the host's own", async () => {
+    const badged = {
+      ...owned,
+      pluginSettings: { "host-icons": { icon: "cloud", badge: "text:H" } },
+    };
+    await openDialog(badged, [
+      { ...prodRule, icon: "", badge: "dot", override: true },
+    ]);
+    expect(previewBadge()).toBe("dot");
+  });
 });

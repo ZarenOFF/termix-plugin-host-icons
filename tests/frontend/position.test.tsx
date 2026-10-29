@@ -11,6 +11,7 @@ import { hostBadgesFor, useHostBadges } from "@termix-ssh/plugin-sdk/ui";
 import * as plugin from "../../src/frontend/index";
 import {
   DEFAULT_POSITION,
+  BASE_PROPERTY,
   SCALE_PROPERTY,
   createPreferences,
   normalizePosition,
@@ -194,6 +195,21 @@ describe("icon size setting", () => {
       "height: calc(1.375rem * var(--host-icons-scale, 1))",
     );
     expect(css).toContain("width: calc(0.875rem * var(--host-icons-scale, 1))");
+  });
+
+  it("tells the picker the list's icon size for the position", async () => {
+    const base = () =>
+      document.documentElement.style.getPropertyValue(BASE_PROPERTY);
+    await renderRows("small");
+    expect(base()).toBe("0.875rem");
+    await act(async () => {
+      await rendered!.deactivate();
+    });
+    rendered = null;
+    expect(base()).toBe("");
+    expect(css).toContain(
+      "var(--host-icons-base, 1.375rem) * var(--host-icons-scale, 1)",
+    );
   });
 
   it("drops the variable when the plugin is disabled", async () => {

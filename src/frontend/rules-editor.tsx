@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
   type KeyboardEvent,
-  type ReactNode,
 } from "react";
 import {
   useHosts,
@@ -20,7 +19,6 @@ import {
   Popover,
   PopoverAnchor,
   PopoverContent,
-  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -31,14 +29,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@termix-ssh/plugin-sdk/ui";
-import { HostIcon } from "./HostIcon";
-import { ColorPicker, IconPicker } from "./IconPicker";
-import { findIcon, normalizeColor } from "./icons";
+import { RuleLook } from "./rule-look";
 import { useLibrary } from "./library";
 import {
   RULES_KEY,
   newRule,
   readRules,
+  rulePattern,
   type IconRule,
   type RuleMatch,
 } from "./rules";
@@ -48,12 +45,12 @@ import { FieldRow } from "./settings";
 export const RULES_FIELD_COMPONENT = "icon-rules";
 
 // One grid for the header and every row, so the columns line up:
-// handle, match, text, icon, color, priority, delete. The last four are
+// handle, match, text, look, priority, delete. The last three are
 // wide enough for their header ("Приоритет" is the longest) and centered,
 // so a header and its tile or checkbox share one axis. Counted from the end,
 // because a row starts with its drop indicator lines while dragging.
 const GRID =
-  "grid grid-cols-[1.5rem_7.5rem_minmax(8rem,1fr)_3rem_3rem_5rem_2rem] items-center gap-2 [&>*:nth-last-child(-n+4)]:justify-self-center";
+  "grid grid-cols-[1.5rem_7.5rem_minmax(8rem,1fr)_3rem_5rem_2rem] items-center gap-2 [&>*:nth-last-child(-n+3)]:justify-self-center";
 
 const TILE =
   "flex items-center justify-center size-8 border border-border text-muted-foreground transition-colors hover:text-foreground hover:border-muted-foreground disabled:opacity-50 disabled:pointer-events-none";
@@ -95,55 +92,6 @@ export function reorder<T>(list: T[], from: number, to: number): T[] {
   return next;
 }
 
-/** A small button that opens a popover with `children` in it. */
-function PopoverTile({
-  label,
-  disabled,
-  dashed,
-  tip,
-  trigger,
-  children,
-}: {
-  label: string;
-  disabled: boolean;
-  dashed?: boolean;
-  /** Shown as a tooltip instead of the label. */
-  tip?: string;
-  trigger: ReactNode;
-  /** Gets a function that closes the popover. */
-  children: (close: () => void) => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const button = (
-    <button
-      type="button"
-      aria-label={label}
-      title={tip ? undefined : label}
-      disabled={disabled}
-      className={`${TILE} ${dashed ? "border-dashed" : ""}`}
-    >
-      {trigger}
-    </button>
-  );
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      {tip ? (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <PopoverTrigger asChild>{button}</PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent>{tip}</TooltipContent>
-        </Tooltip>
-      ) : (
-        <PopoverTrigger asChild>{button}</PopoverTrigger>
-      )}
-      <PopoverContent align="start" className="w-80 max-w-[90vw] p-3">
-        {children(() => setOpen(false))}
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 /**
  * The text of a rule. For a tag rule it is a combobox: a list of the tags
  * hosts already have, narrowed by what is typed. Built on the SDK's Popover,
@@ -174,6 +122,11 @@ function RuleText({
     [rule.match, rule.value, tags],
   );
   const shown = open && !disabled && options.length > 0;
+  // A pattern that does not compile leaves the rule inactive; say why.
+  const invalid =
+    rule.match === "regex" &&
+    rule.value.trim() !== "" &&
+    rulePattern(rule.value) === null;
 
   const pick = (tag: string) => {
     onChange(tag);
@@ -221,11 +174,15 @@ function RuleText({
           }}
           onKeyDown={onKeyDown}
           placeholder={t(
-            rule.match === "tag"
-              ? "rules.valuePlaceholderTag"
-              : "rules.valuePlaceholderName",
+            {
+              tag: "rules.valuePlaceholderTag",
+              name: "rules.valuePlaceholderName",
+              regex: "rules.valuePlaceholderRegex",
+            }[rule.match],
           )}
           aria-label={t("rules.valueLabel", { n })}
+          aria-invalid={invalid || undefined}
+          title={invalid ? t("rules.invalidRegex") : undefined}
           role={rule.match === "tag" ? "combobox" : undefined}
           aria-expanded={rule.match === "tag" ? shown : undefined}
           aria-controls={shown ? listId : undefined}
@@ -235,7 +192,7 @@ function RuleText({
           aria-autocomplete={rule.match === "tag" ? "list" : undefined}
           autoComplete="off"
           disabled={disabled}
-          className="h-8 text-xs min-w-0"
+          className={`h-8 text-xs min-w-0 ${rule.match === "regex" ? "font-mono" : ""} ${invalid ? "border-destructive" : ""}`}
         />
       </PopoverAnchor>
       <PopoverContent
@@ -312,8 +269,6 @@ function RuleRow({
   const row = useRef<HTMLLIElement>(null);
   const n = index + 1;
   useLibrary();
-  const icon = findIcon(rule.icon);
-  const color = normalizeColor(rule.color);
   const lineAbove = drop === index;
   const lineBelow = drop === count && index === count - 1;
   return (
@@ -376,6 +331,7 @@ function RuleRow({
         <SelectContent>
           <SelectItem value="tag">{t("rules.matchTag")}</SelectItem>
           <SelectItem value="name">{t("rules.matchName")}</SelectItem>
+          <SelectItem value="regex">{t("rules.matchRegex")}</SelectItem>
         </SelectContent>
       </Select>
       <RuleText
@@ -385,48 +341,13 @@ function RuleRow({
         disabled={disabled}
         onChange={(value) => onChange({ value })}
       />
-      <PopoverTile
-        label={t("rules.iconLabel", { n })}
+      <RuleLook
+        rule={rule}
+        n={n}
+        tile={TILE}
         disabled={disabled}
-        dashed={!icon}
-        tip={icon ? undefined : t("rules.noIconTip")}
-        trigger={
-          icon ? (
-            <HostIcon icon={icon} color={color} className="size-4" />
-          ) : null
-        }
-      >
-        {(close) => (
-          <IconPicker
-            value={rule.icon}
-            color={color}
-            noneLabel={t("rules.hostOwnIcon")}
-            onChange={(id) => {
-              onChange({ icon: id });
-              close();
-            }}
-          />
-        )}
-      </PopoverTile>
-      <PopoverTile
-        label={t("rules.colorLabel", { n })}
-        disabled={disabled}
-        trigger={
-          <span
-            aria-hidden
-            className="size-4 border border-border bg-muted"
-            style={color ? { background: color } : undefined}
-          />
-        }
-      >
-        {() => (
-          <ColorPicker
-            value={rule.color}
-            icon={icon ?? null}
-            onChange={(next) => onChange({ color: next })}
-          />
-        )}
-      </PopoverTile>
+        onChange={onChange}
+      />
       <div className="flex items-center justify-center">
         <Checkbox
           checked={rule.override}
@@ -575,15 +496,14 @@ export function RulesField({
             <p className="text-xs text-muted-foreground">{t("rules.empty")}</p>
           ) : (
             <div className="overflow-x-auto">
-              <div className="min-w-[34rem]">
+              <div className="min-w-[31rem]">
                 <div
                   className={`${GRID} pb-1 border-b border-border text-[11px] text-muted-foreground`}
                 >
                   <span aria-hidden />
                   <span>{t("rules.colMatch")}</span>
                   <span>{t("rules.colText")}</span>
-                  <span>{t("rules.colIcon")}</span>
-                  <span>{t("rules.colColor")}</span>
+                  <span>{t("rules.colLook")}</span>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <span

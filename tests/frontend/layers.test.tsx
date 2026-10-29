@@ -159,6 +159,8 @@ describe("layers of a resolved host icon", () => {
           value: "prod",
           icon: "database",
           color: "",
+          badge: "",
+          badgeColor: "",
           override: false,
         },
       ],
@@ -393,8 +395,10 @@ describe("layer fields", () => {
       within(element).getByRole("button", { name: locales.layers.badgeDot }),
     );
     expect(setValue).toHaveBeenLastCalledWith("badge", "dot");
-    // No symbol grid: the editor is two buttons and a text box.
-    expect(element.querySelectorAll("button")).toHaveLength(2);
-    expect(element.querySelector("svg")).toBeNull();
+    // No symbol grid: the editor is two buttons and a text box, inside the
+    // disclosure's panel.
+    const panel = within(element).getByTestId("badge-panel");
+    expect(panel.querySelectorAll("button")).toHaveLength(2);
+    expect(panel.querySelector("svg")).toBeNull();
   });
 });

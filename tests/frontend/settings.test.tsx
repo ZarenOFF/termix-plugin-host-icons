@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import {
   renderWithApp,
   type RenderedPluginApp,
@@ -14,6 +21,8 @@ import {
   HOST_ICONS,
   ICON_GROUPS,
 } from "../../src/frontend/icons";
+import type { PluginApiClient } from "@termix-ssh/plugin-sdk/frontend";
+import { library, refreshLibrary } from "../../src/frontend/library";
 import manifestJson from "../../manifest.json";
 import locales from "../../locales/en.json";
 
@@ -93,7 +102,7 @@ describe("locales", () => {
     }
   });
 
-  it("name every brand group and both packs, but no single brand", () => {
+  it("name every brand group and filter, but no single brand", () => {
     for (const group of BRAND_GROUPS) {
       expect(
         (locales.brandGroups as Record<string, string>)[group],
@@ -103,8 +112,9 @@ describe("locales", () => {
     expect(Object.keys(locales.brandGroups).sort()).toEqual(
       [...BRAND_GROUPS].sort(),
     );
-    expect(locales.picker.packIcons).toBeTruthy();
-    expect(locales.picker.packBrands).toBeTruthy();
+    for (const chip of Object.values(locales.picker.chips)) {
+      expect(chip).toBeTruthy();
+    }
     // Brand names are shown as they are, so there is nothing to translate.
     for (const brand of BRAND_ICONS) {
       expect(locales.icons).not.toHaveProperty(brand.id);
@@ -158,9 +168,14 @@ describe("icon field", () => {
   it("says when nothing matches", async () => {
     await renderField("icon-picker");
     fireEvent.change(screen.getByLabelText(locales.picker.search), {
+      target: { value: "zzzzzz" },
+    });
+    expect(screen.getByText(`Nothing matches "zzzzzz"`)).toBeTruthy();
+    // A short query still offers the text icons it spells.
+    fireEvent.change(screen.getByLabelText(locales.picker.search), {
       target: { value: "zzzz" },
     });
-    expect(screen.getByText(locales.picker.empty)).toBeTruthy();
+    expect(screen.queryByText(/Nothing matches/)).toBeNull();
   });
 
   it("warns about an icon this version does not know", async () => {
@@ -177,79 +192,102 @@ describe("icon field", () => {
   });
 });
 
-describe("icon packs", () => {
-  const brandsTab = () =>
-    screen.getByRole("radio", { name: locales.picker.packBrands });
-  const iconsTab = () =>
-    screen.getByRole("radio", { name: locales.picker.packIcons });
+describe("icon filters", () => {
+  const chip = (name: keyof typeof locales.picker.chips) =>
+    screen.getByRole("button", { name: locales.picker.chips[name] });
   const tile = (name: string) => screen.queryByRole("button", { name });
 
-  it("opens on Icons and shows the Lucide groups", async () => {
+  it("opens on All and shows the Lucide groups, then the brand groups", async () => {
     await renderField("icon-picker");
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
-    expect(brandsTab().getAttribute("aria-checked")).toBe("false");
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
+    expect(chip("brands").getAttribute("aria-pressed")).toBe("false");
     expect(tile(locales.icons.router)).not.toBeNull();
-    expect(tile("Ubuntu")).toBeNull();
+    expect(tile("Ubuntu")).not.toBeNull();
     expect(screen.getByText(locales.groups.servers)).toBeTruthy();
-    expect(screen.queryByText(locales.brandGroups.os)).toBeNull();
+    // Brand groups say so in All.
+    expect(screen.getByText(`Brands: ${locales.brandGroups.os}`)).toBeTruthy();
   });
 
-  it("switches to the brand logos, grouped, and back", async () => {
+  it("has no tabs, only one search box", async () => {
     await renderField("icon-picker");
-    fireEvent.click(brandsTab());
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
+    expect(screen.queryAllByRole("radio")).toHaveLength(0);
+    expect(screen.getAllByRole("searchbox")).toHaveLength(1);
+    expect(screen.queryAllByRole("textbox")).toHaveLength(0);
+  });
+
+  it("filters to the brand logos, grouped, and back", async () => {
+    await renderField("icon-picker");
+    fireEvent.click(chip("brands"));
+    expect(chip("brands").getAttribute("aria-pressed")).toBe("true");
     expect(tile("Ubuntu")).not.toBeNull();
     expect(tile(locales.icons.router)).toBeNull();
     for (const group of BRAND_GROUPS) {
       expect(screen.getByText(locales.brandGroups[group])).toBeTruthy();
     }
-    // The No icon tile stays in both packs.
+    // The No icon tile stays in every list.
     expect(tile(locales.picker.none)).not.toBeNull();
-    fireEvent.click(iconsTab());
+    fireEvent.click(chip("icons"));
     expect(tile(locales.icons.router)).not.toBeNull();
     expect(tile("Ubuntu")).toBeNull();
+    expect(tile(locales.picker.none)).not.toBeNull();
   });
 
-  it("leaves hidden logos out of the brands tab", async () => {
+  it("keeps a fixed list height when the chip changes", async () => {
     await renderField("icon-picker");
-    fireEvent.click(brandsTab());
+    const list = screen.getByTestId("picker-list");
+    expect(list.style.height).toBe("340px");
+    fireEvent.click(chip("text"));
+    fireEvent.click(chip("custom"));
+    expect(screen.getByTestId("picker-list").style.height).toBe("340px");
+  });
+
+  it("puts the No icon tile first in the list", async () => {
+    await renderField("icon-picker");
+    const first = screen
+      .getByTestId("picker-list")
+      .querySelector("button") as HTMLButtonElement;
+    expect(first.getAttribute("aria-label")).toBe(locales.picker.none);
+  });
+
+  it("leaves hidden logos out of the lists", async () => {
+    await renderField("icon-picker");
+    expect(tile("Cisco")).toBeNull();
+    fireEvent.click(chip("brands"));
     expect(tile("Cisco")).toBeNull();
     expect(tile("macOS")).toBeNull();
   });
 
   it("stores the id of the brand picked", async () => {
     const { setValue } = await renderField("icon-picker");
-    fireEvent.click(brandsTab());
+    fireEvent.click(chip("brands"));
     fireEvent.click(screen.getByRole("button", { name: "Ubuntu" }));
     expect(setValue).toHaveBeenCalledWith("icon", "brand-ubuntu");
   });
 
-  it("opens on Brands when the value is a brand, and marks it", async () => {
+  it("marks a brand value", async () => {
     await renderField("icon-picker", {
       icon: "brand-debian",
       color: "#22c55e",
     });
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
     expect(tile("Debian")!.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("does not offer hidden logos but still marks one a host has", async () => {
     await renderField("icon-picker", { icon: "brand-cisco" });
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
     expect(tile("Cisco")!.getAttribute("aria-pressed")).toBe("true");
     expect(tile("VMware")).toBeNull();
     expect(screen.queryByText(/does not know/)).toBeNull();
   });
 
-  it("opens on Icons for an empty value or an id it does not know", async () => {
+  it("warns about a brand id it does not know", async () => {
     await renderField("icon-picker", { icon: "brand-from-the-future" });
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByText(/does not know/)).toBeTruthy();
   });
 
-  it("searches both packs from the Icons tab", async () => {
+  it("searches every pack from All", async () => {
     await renderField("icon-picker");
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
     fireEvent.change(screen.getByLabelText(locales.picker.search), {
       target: { value: "k8s" },
     });
@@ -258,6 +296,7 @@ describe("icon packs", () => {
     expect(tile(locales.icons.router)).toBeNull();
     // Group headings and the No icon tile give way to the results.
     expect(tile(locales.picker.none)).toBeNull();
+    expect(screen.queryByText(locales.groups.servers)).toBeNull();
   });
 
   it("shows Lucide and brand matches together", async () => {
@@ -269,24 +308,161 @@ describe("icon packs", () => {
     expect(tile("Kubernetes")).not.toBeNull();
   });
 
-  it("searches both packs from the Brands tab too", async () => {
+  it("searches only the pack of the chip", async () => {
     await renderField("icon-picker");
-    fireEvent.click(brandsTab());
+    fireEvent.click(chip("brands"));
     fireEvent.change(screen.getByLabelText(locales.picker.search), {
       target: { value: "docker" },
     });
     expect(tile("Docker")).not.toBeNull();
+    expect(tile(locales.icons.container)).toBeNull();
+    fireEvent.click(chip("icons"));
+    expect(tile("Docker")).toBeNull();
     expect(tile(locales.icons.container)).not.toBeNull();
   });
 
-  it("keeps the pack chosen after a search is cleared", async () => {
+  it("keeps the query when the chip changes", async () => {
     await renderField("icon-picker");
-    fireEvent.click(brandsTab());
+    const search = screen.getByLabelText(
+      locales.picker.search,
+    ) as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "docker" } });
+    fireEvent.click(chip("brands"));
+    expect(search.value).toBe("docker");
+    fireEvent.click(chip("icons"));
+    expect(search.value).toBe("docker");
+    fireEvent.click(chip("all"));
+    expect(search.value).toBe("docker");
+  });
+
+  it("keeps the chip chosen after a search is cleared", async () => {
+    await renderField("icon-picker");
+    fireEvent.click(chip("brands"));
     const search = screen.getByLabelText(locales.picker.search);
-    fireEvent.change(search, { target: { value: "brand-ubuntu" } });
+    fireEvent.change(search, { target: { value: "ubuntu" } });
     fireEvent.change(search, { target: { value: "" } });
     expect(tile("Ubuntu")).not.toBeNull();
     expect(tile(locales.icons.router)).toBeNull();
+  });
+});
+
+describe("host editor layout", () => {
+  it("shows the picker, then the preview row with the layers", async () => {
+    const { element } = await renderField("icon-picker", {
+      icon: "database",
+      color: "#22c55e",
+      badge: "text:DB",
+    });
+    const preview = within(element).getByTestId("field-preview");
+    expect(preview.className).toContain("border-t");
+    expect(preview.querySelector("[data-host-icons-actual]")).not.toBeNull();
+    const list = within(element).getByTestId("picker-list");
+    expect(
+      list.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("draws the color and the badge color as compact rows", async () => {
+    const { element } = await renderField("icon-color", { icon: "cloud" });
+    // Compact lays the controls out in one wrapping row, not a column.
+    const row = (el: HTMLElement) => el.querySelector("fieldset")!;
+    expect(row(element).className).toContain("flex-wrap");
+    expect(row(element).className).not.toContain("flex-col");
+    cleanup();
+    await rendered?.deactivate();
+    const badgeColor = await renderField("icon-badge-color");
+    expect(row(badgeColor.element).className).toContain("flex-wrap");
+  });
+
+  it("opens the badge section when a badge is set and keeps the editor inside it", async () => {
+    const { element } = await renderField("icon-badge", { badge: "dot" });
+    const toggle = within(element).getByRole("button", {
+      name: locales.dialog.badge.replace(
+        "{{summary}}",
+        locales.layers.badgeDot,
+      ),
+    });
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    const panel = within(element).getByTestId("badge-panel");
+    expect(toggle.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("data-open")).toBe("true");
+    expect(panel.hasAttribute("data-host-icons-collapse")).toBe(true);
+    expect(
+      within(panel).getByRole("button", { name: locales.layers.badgeNone }),
+    ).toBeTruthy();
+  });
+
+  it("starts the badge section closed without a badge and opens on a click", async () => {
+    const { element } = await renderField("icon-badge");
+    const toggle = within(element).getByRole("button", {
+      name: locales.dialog.badge.replace(
+        "{{summary}}",
+        locales.layers.badgeNone,
+      ),
+    });
+    const panel = within(element).getByTestId("badge-panel");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(panel.getAttribute("data-open")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.getAttribute("data-open")).toBe("true");
+  });
+});
+
+describe("badge color follows the Badge disclosure", () => {
+  // Both fields are drawn by core, one after the other, so render them
+  // together in one tree as the host editor does.
+  async function renderBoth(values: Record<string, unknown>) {
+    rendered = await renderWithApp(plugin, { manifest, locales });
+    const setValue = vi.fn();
+    const props = {
+      pluginId: manifest.id,
+      values,
+      setValue,
+      running: true,
+    };
+    const badge = rendered.renderSettingsComponent("icon-badge", props);
+    const color = rendered.renderSettingsComponent("icon-badge-color", props);
+    return { badge, color };
+  }
+  const wrapper = () => screen.getByTestId("badge-color-field");
+
+  it("starts closed without a badge, and opens and closes with the Badge button", async () => {
+    const { badge } = await renderBoth({});
+    expect(wrapper().hasAttribute("data-host-icons-collapse")).toBe(true);
+    expect(wrapper().getAttribute("data-open")).toBe("false");
+    const toggle = within(badge).getByRole("button", {
+      name: locales.dialog.badge.replace(
+        "{{summary}}",
+        locales.layers.badgeNone,
+      ),
+    });
+    fireEvent.click(toggle);
+    expect(wrapper().getAttribute("data-open")).toBe("true");
+    fireEvent.click(toggle);
+    expect(wrapper().getAttribute("data-open")).toBe("false");
+  });
+
+  it("starts open when a badge is set", async () => {
+    await renderBoth({ badge: "dot" });
+    expect(wrapper().getAttribute("data-open")).toBe("true");
+  });
+
+  it("goes back to closed when the badge field is gone", async () => {
+    const { badge } = await renderBoth({ badge: "dot" });
+    expect(wrapper().getAttribute("data-open")).toBe("true");
+    cleanup();
+    await rendered?.deactivate();
+    // A new editor: the color field alone, with nothing publishing "open".
+    rendered = await renderWithApp(plugin, { manifest, locales });
+    rendered.renderSettingsComponent("icon-badge-color", {
+      pluginId: manifest.id,
+      values: {},
+      setValue: vi.fn(),
+      running: true,
+    });
+    expect(wrapper().getAttribute("data-open")).toBe("false");
+    expect(badge).toBeTruthy();
   });
 });
 
@@ -318,6 +494,48 @@ describe("color field", () => {
         .getByRole("button", { name: locales.picker.themeColor })
         .getAttribute("aria-pressed"),
     ).toBe("true");
+  });
+});
+
+describe("color field with an uploaded multicolor icon", () => {
+  const ID = "22222222-2222-4222-8222-222222222222";
+  const api = {
+    get: async () => ({
+      data: {
+        icons: [
+          {
+            id: ID,
+            name: "Logo",
+            kind: "svg",
+            data: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>',
+            tint: false,
+            canEdit: false,
+          },
+        ],
+      },
+    }),
+  } as unknown as PluginApiClient;
+
+  afterEach(() => library.reset());
+
+  it("marks Own colors only while no color is set", async () => {
+    rendered = await renderWithApp(plugin, { manifest, locales, api });
+    await refreshLibrary(api);
+    const draw = (color: string) =>
+      rendered!.renderSettingsComponent("icon-color", {
+        pluginId: manifest.id,
+        values: { icon: `custom:${ID}`, color },
+        setValue: vi.fn(),
+        running: true,
+      });
+    const own = () =>
+      screen.getByRole("button", { name: locales.picker.ownColors });
+    draw("#ef4444");
+    expect(own().getAttribute("aria-pressed")).toBe("false");
+    cleanup();
+    // What core stores after "Use default" on a field with no default value.
+    draw("");
+    expect(own().getAttribute("aria-pressed")).toBe("true");
   });
 });
 
@@ -389,11 +607,9 @@ describe("icon size field", () => {
   });
 });
 
-describe("icon picker pack follows a late value", () => {
-  const brandsTab = () =>
-    screen.getByRole("radio", { name: locales.picker.packBrands });
-  const iconsTab = () =>
-    screen.getByRole("radio", { name: locales.picker.packIcons });
+describe("icon picker follows a late value", () => {
+  const chip = (name: keyof typeof locales.picker.chips) =>
+    screen.getByRole("button", { name: locales.picker.chips[name] });
 
   // The picker is only mounted by the host, so a test plugin registers a
   // wrapper that owns the value and hands its setter back to the test.
@@ -416,36 +632,115 @@ describe("icon picker pack follows a late value", () => {
     return (next: string) => act(() => setValue(next));
   }
 
-  it("moves to Brands when a brand icon arrives after opening", async () => {
+  it("marks a brand icon that arrives after opening", async () => {
     const setValue = await mount("");
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
     setValue("brand-ubuntu");
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
+    expect(
+      screen
+        .getByRole("button", { name: "Ubuntu" })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(chip("all").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("does not fight a pack the user chose", async () => {
+  it("moves to Text when a text icon arrives after opening", async () => {
     const setValue = await mount("");
-    fireEvent.click(brandsTab());
-    setValue("cloud");
-    // An Icons value is no move away from the (default) Icons value.
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
-    fireEvent.click(iconsTab());
-    setValue("");
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
+    setValue("text:plate:DB");
+    expect(chip("text").getAttribute("aria-pressed")).toBe("true");
+    expect(
+      (screen.getByLabelText(locales.picker.textLabel) as HTMLInputElement)
+        .value,
+    ).toBe("DB");
   });
 
-  it("stays on the pack when the value is cleared or unknown", async () => {
-    const setValue = await mount("brand-ubuntu");
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
-    setValue("");
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
-    setValue("from-the-future");
-    expect(brandsTab().getAttribute("aria-checked")).toBe("true");
+  it("does not fight a chip the user chose", async () => {
+    const setValue = await mount("");
+    fireEvent.click(chip("brands"));
+    setValue("text:plate:DB");
+    expect(chip("brands").getAttribute("aria-pressed")).toBe("true");
+    setValue("cloud");
+    expect(chip("brands").getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("uploaded icons field", () => {
+  const ID = "33333333-3333-4333-8333-333333333333";
+  const api = {
+    get: async () => ({
+      data: {
+        icons: [
+          {
+            id: ID,
+            name: "Logo",
+            kind: "svg",
+            data: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>',
+            tint: false,
+            canEdit: true,
+          },
+        ],
+      },
+    }),
+  } as unknown as PluginApiClient;
+
+  afterEach(() => library.reset());
+
+  async function renderLibraryField(permissions: string[]) {
+    rendered = await renderWithApp(plugin, {
+      manifest,
+      locales,
+      api,
+      permissions,
+    });
+    await refreshLibrary(api);
+    return rendered.renderSettingsComponent("icon-library", {
+      pluginId: manifest.id,
+      values: {},
+      setValue: vi.fn(),
+      running: true,
+    });
+  }
+
+  it("declares a custom user setting for it", () => {
+    expect(
+      manifest.contributes?.settings?.user?.find(
+        (field) => field.key === "library",
+      ),
+    ).toMatchObject({ type: "custom", component: "icon-library" });
   });
 
-  it("follows a later change to the other pack", async () => {
-    const setValue = await mount("brand-ubuntu");
-    setValue("cloud");
-    expect(iconsTab().getAttribute("aria-checked")).toBe("true");
+  it("opens the manager in a dialog from a button", async () => {
+    await renderLibraryField(["host-icons.upload"]);
+    expect(screen.getByText(locales.settings.user.library.label)).toBeTruthy();
+    expect(screen.queryByTestId("manage-dialog")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: locales.custom.manageSettings }),
+    );
+    const dialog = screen.getByTestId("manage-dialog");
+    expect(dialog.hasAttribute("data-host-icons-dialog")).toBe(true);
+    expect(within(dialog).getByText(locales.custom.manageTitle)).toBeTruthy();
+    expect(
+      within(dialog).getByLabelText(
+        locales.custom.renameLabel.replace("{{name}}", "Logo"),
+      ),
+    ).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: locales.custom.done }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+    );
+  });
+
+  it("is also shown to a user who only has the manage permission", async () => {
+    await renderLibraryField(["host-icons.manage"]);
+    expect(
+      screen.getByRole("button", { name: locales.custom.manageSettings }),
+    ).toBeTruthy();
+  });
+
+  it("is hidden from a user with neither permission", async () => {
+    const element = await renderLibraryField([]);
+    expect(element.textContent).toBe("");
   });
 });

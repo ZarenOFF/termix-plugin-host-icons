@@ -93,6 +93,16 @@ async function picker(
   harness.renderSettingsComponent("harness", {});
 }
 
+describe("ColorPicker rings", () => {
+  it("leaves room around the controls for the selected ring", async () => {
+    await picker(null, { value: "#f59145" });
+    const selected = screen.getByRole("button", { name: "#f59145" });
+    expect(selected.className).toContain("ring-2");
+    // Scrolling ancestors clip at the padding edge, so the fieldset pads.
+    expect(selected.closest("fieldset")!.className).toContain("p-1");
+  });
+});
+
 describe("ColorPicker empty choice", () => {
   it("is Own colors for a multicolor upload", async () => {
     await picker(own());
@@ -100,7 +110,6 @@ describe("ColorPicker empty choice", () => {
       name: locales.picker.ownColors,
     });
     expect(button.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText(locales.picker.ownColorsHint)).toBeTruthy();
     expect(within(button).getByTestId("no-color-preview")).toBeTruthy();
   });
 
@@ -114,7 +123,6 @@ describe("ColorPicker empty choice", () => {
     const button = screen.getByRole("button", {
       name: locales.picker.themeColor,
     });
-    expect(screen.getByText(locales.picker.themeColorHint)).toBeTruthy();
     expect(within(button).getByTestId("no-color-preview")).toBeTruthy();
   });
 
@@ -123,7 +131,6 @@ describe("ColorPicker empty choice", () => {
     const button = screen.getByRole("button", {
       name: locales.picker.noColor,
     });
-    expect(screen.getByText(locales.picker.noColorHint)).toBeTruthy();
     expect(within(button).queryByTestId("no-color-preview")).toBeNull();
   });
 
@@ -135,11 +142,10 @@ describe("ColorPicker empty choice", () => {
     ).toBeTruthy();
   });
 
-  it("keeps a given label and shows no preview or hint", async () => {
+  it("keeps a given label and shows no preview", async () => {
     await picker(own(), { themeLabel: "Chip" });
     const button = screen.getByRole("button", { name: "Chip" });
     expect(within(button).queryByTestId("no-color-preview")).toBeNull();
-    expect(screen.queryByText(locales.picker.ownColorsHint)).toBeNull();
   });
 });
 
@@ -208,7 +214,6 @@ describe("Change icon dialog", () => {
     expect(
       screen.getByRole("button", { name: locales.picker.ownColors }),
     ).toBeTruthy();
-    fireEvent.click(screen.getByText(locales.picker.packIcons));
     fireEvent.click(
       screen.getByRole("button", { name: locales.icons.database }),
     );

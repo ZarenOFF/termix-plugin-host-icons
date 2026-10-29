@@ -71,12 +71,84 @@ async function openDialog(host: Record<string, unknown> = plain) {
   return screen.findByRole("dialog");
 }
 
+const badgeToggle = (scope: HTMLElement = document.body) =>
+  within(scope).getByRole("button", {
+    name: new RegExp("^" + locales.dialog.badge.split(":")[0] + ":"),
+  });
+
+const openBadge = (dialog: HTMLElement) => {
+  const toggle = badgeToggle(dialog);
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+};
+
 const clickSave = () =>
   fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
 
 describe("layers in the change icon dialog", () => {
+  it("keeps the badge editor behind a Badge button below the color", async () => {
+    await openDialog();
+    const section = within(screen.getByTestId("badge-section"));
+    const toggle = section.getByRole("button", {
+      name: locales.dialog.badge.replace(
+        "{{summary}}",
+        locales.layers.badgeNone,
+      ),
+    });
+    const panel = screen.getByTestId("badge-panel");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("aria-controls")).toBe(panel.id);
+    expect(panel.getAttribute("data-open")).toBe("false");
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.getAttribute("data-open")).toBe("true");
+    expect(
+      within(panel).getByRole("textbox", { name: locales.layers.badgeText }),
+    ).toBeTruthy();
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(panel.getAttribute("data-open")).toBe("false");
+  });
+
+  it("names the badge on the button and opens for a host that has one", async () => {
+    await openDialog({
+      ...plain,
+      pluginSettings: { "host-icons": { icon: "server", badge: "dot" } },
+    });
+    const toggle = badgeToggle();
+    expect(toggle.textContent).toBe(
+      locales.dialog.badge.replace("{{summary}}", locales.layers.badgeDot),
+    );
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("stacks preview, color, badge and a footer with only Save", async () => {
+    await openDialog();
+    const order = [
+      "dialog-preview",
+      "color-section",
+      "badge-section",
+      "dialog-footer",
+    ].map((id) => screen.getByTestId(id));
+    for (let at = 1; at < order.length; at++)
+      expect(
+        order[at - 1].compareDocumentPosition(order[at]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    const buttons = within(screen.getByTestId("dialog-footer")).getAllByRole(
+      "button",
+    );
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0].textContent).toBe(locales.dialog.save);
+    // The badge editor comes after the color picker, never before it.
+    const hex = screen.getAllByLabelText(locales.picker.hexInput);
+    expect(hex).toHaveLength(2);
+    expect(screen.getByTestId("color-section").contains(hex[0])).toBe(true);
+    expect(screen.getByTestId("badge-panel").contains(hex[1])).toBe(true);
+  });
+
   it("saves a text badge and shows it in the preview", async () => {
     const dialog = await openDialog();
+    openBadge(dialog);
     fireEvent.change(
       within(dialog).getByRole("textbox", { name: locales.layers.badgeText }),
       { target: { value: "DBX" } },
@@ -91,6 +163,7 @@ describe("layers in the change icon dialog", () => {
 
   it("saves a dot badge, leaving the unchanged badge color out", async () => {
     const dialog = await openDialog();
+    openBadge(dialog);
     const dot = within(dialog).getByRole("button", {
       name: locales.layers.badgeDot,
     });
@@ -112,21 +185,9 @@ describe("layers in the change icon dialog", () => {
     expect(Object.keys(locales)).not.toContain("badgeGlyphs");
   });
 
-  it("hands layers back to the default", async () => {
-    const dialog = await openDialog();
-    fireEvent.click(
-      within(dialog).getByRole("button", {
-        name: locales.dialog.useDefaultBadge,
-      }),
-    );
-    clickSave();
-    await vi.waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ _inherit: ["badge"] }),
-    );
-  });
-
   it("disables the badge when the host has no icon", async () => {
     const dialog = await openDialog(bare);
+    openBadge(dialog);
     expect(within(dialog).getByText(locales.layers.needIcon)).toBeTruthy();
     const text = within(dialog).getByRole("textbox", {
       name: locales.layers.badgeText,

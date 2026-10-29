@@ -5,6 +5,12 @@
   },
   "settings": {
     "user": {
+      "help": {
+        "label": "Priority order",
+        "order": "The host's own icon, color and badge come first. If it has none, the folder default applies, then your user default, then the server default.",
+        "rules": "Rules apply from top to bottom and the first one that applies wins. Without Priority, a rule fills in only what the host lacks after defaults. With Priority, what the rule sets replaces the host's own or default.",
+        "badge": "A rule's badge is drawn only on a host that ends up with an icon."
+      },
       "position": {
         "label": "Icon position",
         "description": "Where host icons show in the Hosts list.",
@@ -23,7 +29,11 @@
       },
       "rules": {
         "label": "Automatic icons",
-        "description": "Give hosts an icon or a color by tag or name. The first rule that applies wins; turn on Priority to replace the host's own icon."
+        "description": "Give hosts an icon, color or badge by tag or name. The first rule that applies wins; turn on Priority to replace the host's own."
+      },
+      "library": {
+        "label": "Uploaded icons",
+        "description": "Add, rename and delete the icons everyone on this server can pick for a host."
       }
     },
     "host": {
@@ -47,27 +57,31 @@
   },
   "picker": {
     "search": "Search icons",
-    "packIcons": "Icons",
-    "packBrands": "Brands",
-    "packText": "Text",
-    "packCustom": "Uploaded",
+    "filter": "Filter",
+    "chips": {
+      "all": "All",
+      "icons": "Icons",
+      "brands": "Brands",
+      "text": "Text",
+      "custom": "Uploaded"
+    },
+    "used": "Used on your hosts",
+    "brandsGroup": "Brands: {{group}}",
+    "textFor": "Text icon \"{{label}}\"",
+    "textTile": "{{style}} {{label}}",
+    "nothing": "Nothing matches \"{{query}}\"",
     "textLabel": "Label",
-    "textPlaceholder": "Type text",
-    "textUsed": "Already in use",
+    "textPlaceholder": "Type 1 to 4 characters",
+    "textUsed": "Text icons in use",
     "textStyle": {
       "frame": "Frame",
       "plate": "Plate",
       "plain": "Plain"
     },
-    "textHint": "1 to 4 characters. The color applies to the text.",
     "none": "No icon",
-    "empty": "No icons match.",
     "themeColor": "Theme color",
-    "themeColorHint": "Theme color follows the text color of the list.",
     "ownColors": "Own colors",
-    "ownColorsHint": "The icon keeps its own colors. A color repaints it entirely.",
     "noColor": "No color",
-    "noColorHint": "Icons from the built-in sets, logos and text follow the text color of the list. Uploaded multicolor icons keep their own colors.",
     "colorInput": "Pick a color",
     "hexInput": "Hex color",
     "noIconPreview": "No icon",
@@ -75,30 +89,34 @@
     "badgePlaceholder": "1 or 2 characters"
   },
   "rules": {
-    "empty": "No rules yet. Add one to give hosts an icon by tag or name.",
+    "empty": "No rules yet. Add one to give hosts an icon by tag, name or regular expression.",
     "add": "Add rule",
     "matchTag": "Tag",
     "matchName": "Name contains",
+    "matchRegex": "Name regex",
     "valuePlaceholderTag": "Tag, for example prod",
     "valuePlaceholderName": "Part of the name",
+    "valuePlaceholderRegex": "For example ^(db|pg)-",
+    "invalidRegex": "Not a valid regular expression, so the rule is off",
     "valueLabel": "Rule {{n}} text",
-    "iconLabel": "Rule {{n}} icon",
-    "colorLabel": "Rule {{n}} color",
     "delete": "Delete rule {{n}}",
     "summary": {
       "tag": "tag {{value}}",
-      "name": "name contains {{value}}"
+      "name": "name contains {{value}}",
+      "regex": "name matches {{value}}"
     },
     "overrideLabel": "Rule {{n}} takes priority over the host's icon",
+    "lookLabel": "Look of rule {{n}}",
+    "lookTitle": "Look of rule {{n}}",
+    "lookDescription": "Pick the icon, color and badge this rule gives.",
+    "colLook": "Look",
     "colMatch": "Match",
     "colText": "Text",
-    "colIcon": "Icon",
-    "colColor": "Color",
     "colPriority": "Priority",
-    "priorityTip": "Replaces the host's own icon and defaults",
+    "priorityTip": "Replaces the host's own icon, color and badge, and defaults",
     "matchLabel": "Rule {{n}} matches by",
     "handleLabel": "Reorder rule {{n}}: drag, or hold Alt and press Up or Down",
-    "noIconTip": "No icon: only the color changes, the host keeps its own icon",
+    "noIconTip": "No icon: only the color or badge is added, the host keeps its own icon",
     "hostOwnIcon": "Host's own icon",
     "suggestions": "Existing tags"
   },
@@ -209,19 +227,12 @@
     "title": "Icon for {{name}}",
     "description": "Shown next to the host name in the Hosts list.",
     "save": "Save",
-    "cancel": "Cancel",
-    "useDefault": "Use default",
     "saved": "Icon saved",
     "failed": "Could not save the icon",
-    "useDefaultIcon": "Use the default icon",
-    "useDefaultColor": "Use the default color",
-    "followsDefault": "Follows the default after saving",
     "ruleNote": "Rule \"{{rule}}\" gives this host an icon while it has none.",
-    "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon or color shown for this host.",
-    "badge": "Corner badge",
-    "badgeColor": "Badge color",
-    "useDefaultBadge": "Use the default badge",
-    "useDefaultBadgeColor": "Use the default badge color"
+    "ruleOverrideNote": "Rule \"{{rule}}\" sets the icon, color or badge shown for this host.",
+    "badge": "Badge: {{summary}}",
+    "badgeColor": "Badge color"
   },
   "custom": {
     "upload": "Upload icon",
@@ -230,7 +241,6 @@
     "done": "Done",
     "namePlaceholder": "Icon name",
     "nameLabel": "Name of the new icon",
-    "recolor": "Monochrome icon",
     "add": "Add to library",
     "cancel": "Cancel",
     "renameLabel": "Name of {{name}}",
@@ -256,7 +266,14 @@
       "pixels": "The image is too large in pixels.",
       "invalid": "This file is not a valid or safe icon.",
       "failed": "Something went wrong. Try again."
-    }
+    },
+    "manageTitle": "Uploaded icons",
+    "manageDescription": "Add, rename and delete the icons in the shared library.",
+    "manageEmpty": "No uploaded icons yet.",
+    "manageSettings": "Manage uploaded icons",
+    "search": "Search uploaded icons",
+    "noMatch": "No icons match.",
+    "nameInvalid": "Enter a name of 1 to {{max}} characters."
   },
   "permissions": {
     "upload": {
@@ -269,7 +286,6 @@
     }
   },
   "layers": {
-    "title": "Layers",
     "needIcon": "Pick an icon first: the badge is drawn on top of it.",
     "badgeNone": "None",
     "badgeText": "Badge text",

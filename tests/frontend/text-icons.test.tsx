@@ -198,9 +198,7 @@ describe("drawing text icons", () => {
   });
 });
 
-describe("text tab of the picker", () => {
-  const radio = (name: string) => screen.getByRole("radio", { name });
-
+describe("text icons in the picker", () => {
   async function mount(value: string, onChange = vi.fn()) {
     rendered = await renderWithApp(
       {
@@ -216,53 +214,157 @@ describe("text tab of the picker", () => {
     return onChange;
   }
 
-  const input = () => screen.getByLabelText(locales.picker.textLabel);
+  const chip = (name: string) => screen.getByRole("button", { name });
+  const textChip = () => chip(locales.picker.chips.text);
+  const style = (name: "frame" | "plate" | "plain") =>
+    screen.getByTestId(`text-style-${name}`);
+  const search = () => screen.getByLabelText(locales.picker.search);
+  const label = () => screen.getByLabelText(locales.picker.textLabel);
 
-  it("opens on a text value, prefilled, without the search box", async () => {
+  it("opens on Text for a text value, with its label in the field", async () => {
     await mount("text:plate:K8");
-    expect(radio(locales.picker.packText).getAttribute("aria-checked")).toBe(
-      "true",
-    );
-    expect((input() as HTMLInputElement).value).toBe("K8");
-    expect(
-      radio(locales.picker.textStyle.plate).getAttribute("aria-checked"),
-    ).toBe("true");
-    expect(screen.queryByLabelText(locales.picker.search)).toBeNull();
+    expect(textChip().getAttribute("aria-pressed")).toBe("true");
+    expect((label() as HTMLInputElement).value).toBe("K8");
+    // The search stays a search in Text; the label is its own field.
+    expect((search() as HTMLInputElement).value).toBe("");
+    expect(style("plate").getAttribute("aria-pressed")).toBe("true");
+    expect(style("frame").getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("emits an id as the label and style change", async () => {
+  it("keeps the same search field in every chip", async () => {
+    await mount("");
+    for (const name of ["all", "icons", "brands", "text", "custom"] as const) {
+      fireEvent.click(chip(locales.picker.chips[name]));
+      const field = search() as HTMLInputElement;
+      expect(field.placeholder).toBe(locales.picker.search);
+      expect(
+        field.closest("[data-host-icons-search]")!.querySelector("svg"),
+      ).toBeTruthy();
+    }
+  });
+
+  it("prefills an empty label from a search that fits when Text is chosen", async () => {
     const onChange = await mount("");
-    fireEvent.click(radio(locales.picker.packText));
-    expect(screen.queryByLabelText(locales.picker.search)).toBeNull();
-    fireEvent.change(input(), { target: { value: "DB" } });
-    expect(onChange).toHaveBeenLastCalledWith("text:frame:DB");
-    fireEvent.click(radio(locales.picker.textStyle.plain));
-    expect(onChange).toHaveBeenLastCalledWith("text:plain:DB");
-    fireEvent.click(radio(locales.picker.textStyle.plate));
-    expect(onChange).toHaveBeenLastCalledWith("text:plate:DB");
+    fireEvent.change(search(), { target: { value: "db" } });
+    fireEvent.click(textChip());
+    expect((label() as HTMLInputElement).value).toBe("db");
+    expect((search() as HTMLInputElement).value).toBe("db");
+    // A prefill is not a choice.
+    expect(onChange).not.toHaveBeenCalled();
+    // A label already there is kept.
+    fireEvent.change(label(), { target: { value: "K8" } });
+    fireEvent.click(chip(locales.picker.chips.all));
+    fireEvent.change(search(), { target: { value: "ab" } });
+    fireEvent.click(textChip());
+    expect((label() as HTMLInputElement).value).toBe("K8");
+  });
+
+  it("does not prefill from a search too long for a label", async () => {
+    await mount("");
+    fireEvent.change(search(), { target: { value: "servers" } });
+    fireEvent.click(textChip());
+    expect((label() as HTMLInputElement).value).toBe("");
+  });
+
+  it("has the same fixed list height in every chip", async () => {
+    await mount("");
+    const heights = (["all", "text", "custom", "brands"] as const).map(
+      (name) => {
+        fireEvent.click(chip(locales.picker.chips[name]));
+        return screen.getByTestId("picker-list").style.height;
+      },
+    );
+    expect(new Set(heights).size).toBe(1);
+    expect(heights[0]).toBe("224px");
+    expect(screen.getByTestId("picker-list").style.maxHeight).toBe("");
+  });
+
+  it("puts the label field inside the list, above the styles", async () => {
+    await mount("");
+    fireEvent.click(textChip());
+    expect(screen.getByTestId("picker-list").contains(label())).toBe(true);
     expect(
-      screen.getByTestId("text-icon-preview").querySelector("svg")!.dataset
-        .textIcon,
-    ).toBe("plate");
+      label().compareDocumentPosition(style("frame")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("takes the label from its own field once Text is chosen", async () => {
+    const onChange = await mount("");
+    fireEvent.click(textChip());
+    expect((label() as HTMLInputElement).placeholder).toBe(
+      locales.picker.textPlaceholder,
+    );
+    // Nothing to emit before there is a label.
+    fireEvent.click(style("plain"));
+    expect(onChange).not.toHaveBeenCalled();
+    fireEvent.change(label(), { target: { value: "DB" } });
+    expect(onChange).toHaveBeenLastCalledWith("text:plain:DB");
+    fireEvent.click(style("plate"));
+    expect(onChange).toHaveBeenLastCalledWith("text:plate:DB");
+    expect(style("plate").querySelector("svg")!.dataset.textIcon).toBe("plate");
+    fireEvent.click(style("frame"));
+    expect(onChange).toHaveBeenLastCalledWith("text:frame:DB");
+  });
+
+  it("shows the three styles with captions", async () => {
+    await mount("");
+    fireEvent.click(textChip());
+    for (const name of ["frame", "plate", "plain"] as const)
+      expect(style(name).textContent).toContain(locales.picker.textStyle[name]);
   });
 
   it("limits the label to four code points", async () => {
     const onChange = await mount("");
-    fireEvent.click(radio(locales.picker.packText));
-    fireEvent.change(input(), { target: { value: "ABCDEF" } });
-    expect((input() as HTMLInputElement).value).toBe("ABCD");
+    fireEvent.click(textChip());
+    fireEvent.change(label(), { target: { value: "ABCDEF" } });
+    expect((label() as HTMLInputElement).value).toBe("ABCD");
     expect(onChange).toHaveBeenLastCalledWith("text:frame:ABCD");
   });
 
   it("emits nothing for an empty label", async () => {
     const onChange = await mount("text:frame:DB");
-    fireEvent.change(input(), { target: { value: "" } });
-    fireEvent.change(input(), { target: { value: "  " } });
-    fireEvent.click(radio(locales.picker.textStyle.plain));
+    fireEvent.change(label(), { target: { value: "" } });
+    fireEvent.change(label(), { target: { value: "  " } });
+    fireEvent.click(style("plain"));
     expect(onChange).not.toHaveBeenCalled();
+    expect(style("plain").querySelector("svg")).toBeTruthy();
+  });
+
+  it("offers text tiles first in All for a query of 1 to 4 characters", async () => {
+    const onChange = await mount("");
+    fireEvent.change(search(), { target: { value: "ser" } });
+    const heading = screen.getByText(
+      locales.picker.textFor.replace("{{label}}", "ser"),
+    );
+    const list = screen.getByTestId("picker-list");
+    // The text section comes before every icon section.
+    expect(list.firstElementChild!.contains(heading)).toBe(true);
+    const plate = screen.getByRole("button", {
+      name: locales.picker.textTile
+        .replace("{{style}}", locales.picker.textStyle.plate)
+        .replace("{{label}}", "ser"),
+    });
+    fireEvent.click(plate);
+    expect(onChange).toHaveBeenLastCalledWith("text:plate:ser");
+    // The "No icon" tile is hidden while searching.
     expect(
-      screen.getByTestId("text-icon-preview").querySelector("svg"),
+      screen.queryByRole("button", { name: locales.picker.none }),
     ).toBeNull();
+
+    fireEvent.change(search(), { target: { value: "servers" } });
+    expect(screen.queryByText(/Text icon "/)).toBeNull();
+  });
+
+  it("offers text tiles in All but not in Icons or Brands", async () => {
+    await mount("");
+    fireEvent.change(search(), { target: { value: "db" } });
+    fireEvent.click(chip(locales.picker.chips.icons));
+    expect(screen.queryByText(/Text icon "/)).toBeNull();
+    fireEvent.click(chip(locales.picker.chips.brands));
+    expect(screen.queryByText(/Text icon "/)).toBeNull();
+    fireEvent.click(chip(locales.picker.chips.all));
+    expect(screen.getByText(/Text icon "db"/)).toBeTruthy();
   });
 });
 

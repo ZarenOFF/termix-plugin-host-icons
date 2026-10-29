@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { icons } from "lucide-react";
 import { HOST_ICONS } from "../../src/frontend/icons";
+import { OWN_ICON_PLACEHOLDER } from "../../src/frontend/rule-look";
 import manifest from "../../manifest.json";
 
 /**
@@ -60,6 +61,10 @@ describe("Lucide names are canonical, not aliases", () => {
   it("knows an alias from a canonical name", () => {
     expect(canonical.has("Trash")).toBe(true);
     expect(canonical.has("Trash2")).toBe(false);
+  });
+
+  it("draws the host's own icon placeholder with a canonical name", () => {
+    expect(canonical.has(OWN_ICON_PLACEHOLDER.lucide)).toBe(true);
   });
 
   it("uses a canonical name for the plugin's own icon", () => {

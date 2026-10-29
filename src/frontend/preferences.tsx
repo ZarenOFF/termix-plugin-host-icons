@@ -5,7 +5,12 @@ import {
   useSettings,
 } from "@termix-ssh/plugin-sdk/frontend";
 import { refreshLibrary, useLibrary } from "./library";
-import { collectTextIcons, usedTextIcons } from "./used-text";
+import {
+  collectTextIcons,
+  collectUsedIcons,
+  usedIcons,
+  usedTextIcons,
+} from "./used-text";
 import {
   NO_RULES,
   RULES_KEY,
@@ -28,6 +33,12 @@ export const MAX_SIZE = 150;
 /** host-icons.css scales every icon size and the large slot by this. */
 export const SCALE_PROPERTY = "--host-icons-scale";
 
+/**
+ * The list's icon size for the position, before scaling. host-icons.css
+ * draws the picker's icons at it, so they show at the size the list will.
+ */
+export const BASE_PROPERTY = "--host-icons-base";
+
 export function normalizeSize(value: unknown): number {
   if (typeof value === "string" && value.trim() === "") return DEFAULT_SIZE;
   const size = typeof value === "string" ? Number(value) : value;
@@ -45,6 +56,13 @@ export const ICON_POSITIONS = ["large", "small", "after"] as const;
 export type IconPosition = (typeof ICON_POSITIONS)[number];
 
 export const DEFAULT_POSITION: IconPosition = "large";
+
+/** The sizes host-icons.css gives the icon in the list, at 100%. */
+const BASE_SIZE: Record<IconPosition, string> = {
+  large: "1.375rem",
+  small: "0.875rem",
+  after: "0.875rem",
+};
 
 export function normalizePosition(value: unknown): IconPosition {
   return ICON_POSITIONS.includes(value as IconPosition)
@@ -154,11 +172,12 @@ export function createPreferencesSync(preferences: Preferences) {
     useEffect(() => {
       preferences.set({ position, anyIcon, skipEmptySlot, rules });
     }, [position, anyIcon, skipEmptySlot, rules]);
-    // Text icons are typed, not listed, so the Text tab offers these again.
+    // Text icons are typed, not listed, so the Text filter offers these
+    // again; the picker's first section shows every icon in use.
     useEffect(() => {
-      usedTextIcons.set(
-        collectTextIcons(hosts, loaded ? values[RULES_KEY] : undefined),
-      );
+      const rawRules = loaded ? values[RULES_KEY] : undefined;
+      usedTextIcons.set(collectTextIcons(hosts, rawRules));
+      usedIcons.set(collectUsedIcons(hosts, rawRules));
     }, [hosts, loaded, values]);
     // The large icon's room is padding on the row's text column, which can't
     // read a variable from the badge inside it, so the scale sits on the root.
@@ -171,6 +190,15 @@ export function createPreferencesSync(preferences: Preferences) {
         root.removeProperty(SCALE_PROPERTY);
       };
     }, [size]);
+    const base = loaded ? BASE_SIZE[position] : null;
+    useEffect(() => {
+      if (base === null) return;
+      const root = document.documentElement.style;
+      root.setProperty(BASE_PROPERTY, base);
+      return () => {
+        root.removeProperty(BASE_PROPERTY);
+      };
+    }, [base]);
     return null;
   };
 }

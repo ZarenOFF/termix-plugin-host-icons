@@ -1,9 +1,16 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 import {
   useTranslation,
   type SettingsComponentProps,
 } from "@termix-ssh/plugin-sdk/frontend";
-import { Input } from "@termix-ssh/plugin-sdk/ui";
+import { Button, Input } from "@termix-ssh/plugin-sdk/ui";
 import { ColorPicker, IconPicker, IconPreview } from "./IconPicker";
 import {
   BADGE_COLOR_KEY,
@@ -13,7 +20,8 @@ import {
   findIcon,
 } from "./icons";
 import { useLibrary } from "./library";
-import { BadgeEditor } from "./layers";
+import { BadgeDisclosure, BadgeEditor, useBadgeSummary } from "./layers";
+import { ManageDialog, useCanManageLibrary } from "./uploaded";
 import {
   DEFAULT_SIZE,
   MAX_SIZE,
@@ -28,6 +36,7 @@ export const COLOR_FIELD_COMPONENT = "icon-color";
 export const SIZE_FIELD_COMPONENT = "icon-size";
 export const BADGE_FIELD_COMPONENT = "icon-badge";
 export const BADGE_COLOR_FIELD_COMPONENT = "icon-badge-color";
+export const LIBRARY_FIELD_COMPONENT = "icon-library";
 
 const text = (value: unknown) => (typeof value === "string" ? value : "");
 
@@ -36,20 +45,20 @@ const text = (value: unknown) => (typeof value === "string" ? value : "");
 export function FieldRow({
   label,
   description,
-  aside,
   children,
+  divider = true,
 }: {
   label: string;
   description: string;
-  aside?: ReactNode;
   children: ReactNode;
+  /** The line under the row; off for a row whose next one can be hidden. */
+  divider?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-1.5 py-3 border-b border-border last:border-0 min-w-0">
-      <div className="flex items-center justify-between gap-2 min-w-0">
-        <span className="text-sm font-medium leading-snug">{label}</span>
-        {aside}
-      </div>
+    <div
+      className={`flex flex-col gap-1.5 py-3 min-w-0 ${divider ? "border-b border-border last:border-0" : ""}`}
+    >
+      <span className="text-sm font-medium leading-snug">{label}</span>
       <span className="text-xs text-muted-foreground leading-snug">
         {description}
       </span>
@@ -58,6 +67,11 @@ export function FieldRow({
   );
 }
 
+// The editor is laid out like the Change icon dialog: the picker at a fixed
+// height, the preview in a row below it, a compact color row, and the badge
+// as a disclosure under the color. Core draws one field per key, in manifest
+// order (icon, color, badge, badge color), so each part is its own component
+// and a key keeps core's own Use default; see AGENTS.md.
 export function IconField({
   values,
   setValue,
@@ -70,24 +84,50 @@ export function IconField({
     <FieldRow
       label={t("settings.host.icon.label")}
       description={t("settings.host.icon.description")}
-      aside={
-        <IconPreview
+    >
+      <div className="flex flex-col gap-3 min-w-0">
+        <IconPicker
           value={icon}
           color={color}
-          badge={text(values[BADGE_KEY])}
-          badgeColor={text(values[BADGE_COLOR_KEY])}
+          disabled={!running}
+          listHeight={340}
+          onChange={(id) => setValue(ICON_KEY, id)}
         />
-      }
-    >
-      <IconPicker
-        value={icon}
-        color={color}
-        disabled={!running}
-        onChange={(id) => setValue(ICON_KEY, id)}
-      />
+        <div
+          data-testid="field-preview"
+          className="flex items-center gap-1 min-w-0 border-t border-border pt-3"
+        >
+          <IconPreview
+            value={icon}
+            color={color}
+            badge={text(values[BADGE_KEY])}
+            badgeColor={text(values[BADGE_COLOR_KEY])}
+          />
+        </div>
+      </div>
     </FieldRow>
   );
 }
+
+// Core draws the badge and the badge color as two fields, but the color only
+// matters while the Badge disclosure is open, so BadgeField publishes its open
+// state here and BadgeColorField opens and closes with it.
+let badgeOpen = false;
+const badgeListeners = new Set<() => void>();
+function setBadgeOpen(next: boolean) {
+  if (badgeOpen === next) return;
+  badgeOpen = next;
+  badgeListeners.forEach((listener) => listener());
+}
+const subscribeBadgeOpen = (listener: () => void) => {
+  badgeListeners.add(listener);
+  return () => {
+    badgeListeners.delete(listener);
+  };
+};
+const readBadgeOpen = () => badgeOpen;
+const useBadgeOpen = () =>
+  useSyncExternalStore(subscribeBadgeOpen, readBadgeOpen, () => false);
 
 /** A field that holds one color, under its own key and texts. */
 function ColorKeyField(
@@ -104,12 +144,14 @@ function ColorKeyField(
     useLibrary();
     // The icon of the same scope: this host, or the default being edited.
     const icon = forIcon ? findIcon(text(values[ICON_KEY])) : undefined;
-    return (
+    const open = useBadgeOpen();
+    const row = (
       <FieldRow
         label={t(`settings.host.${textKey}.label`)}
         description={t(`settings.host.${textKey}.description`)}
       >
         <ColorPicker
+          compact
           value={text(values[key])}
           disabled={!running}
           icon={icon ?? null}
@@ -117,6 +159,17 @@ function ColorKeyField(
           onChange={(color) => setValue(key, color)}
         />
       </FieldRow>
+    );
+    if (forIcon) return row;
+    // The badge color follows the Badge disclosure above it.
+    return (
+      <div
+        data-testid="badge-color-field"
+        data-host-icons-collapse=""
+        data-open={open ? "true" : "false"}
+      >
+        <div>{row}</div>
+      </div>
     );
   };
 }
@@ -129,23 +182,45 @@ export const BadgeColorField = ColorKeyField(
   false,
 );
 
-/** The corner badge: see BadgeEditor. */
+/**
+ * The corner badge, as the same disclosure the Change icon dialog has. It
+ * starts open when the host (or the default being edited) has a badge.
+ */
 export function BadgeField({
   values,
   setValue,
   running,
 }: SettingsComponentProps) {
   const { t } = useTranslation();
+  const badge = text(values[BADGE_KEY]);
+  const summary = useBadgeSummary(badge);
+  const [open, setOpen] = useState(() => badge !== "");
+  // Before paint, so a field that starts open does not animate from closed.
+  useLayoutEffect(() => {
+    setBadgeOpen(open);
+  }, [open]);
+  useLayoutEffect(() => () => setBadgeOpen(false), []);
   return (
+    // No line under Badge: Badge color below it is hidden while it is closed,
+    // and a line would then end the section.
     <FieldRow
       label={t("settings.host.badge.label")}
       description={t("settings.host.badge.description")}
+      divider={false}
     >
-      <BadgeEditor
-        value={text(values[BADGE_KEY])}
-        disabled={!running}
-        onChange={(badge) => setValue(BADGE_KEY, badge)}
-      />
+      <div className="flex flex-col min-w-0">
+        <BadgeDisclosure
+          summary={summary}
+          open={open}
+          onToggle={() => setOpen((value) => !value)}
+        >
+          <BadgeEditor
+            value={badge}
+            disabled={!running}
+            onChange={(next) => setValue(BADGE_KEY, next)}
+          />
+        </BadgeDisclosure>
+      </div>
     </FieldRow>
   );
 }
@@ -210,6 +285,34 @@ export function SizeField({
           {t("settings.user.size.unit")}
         </span>
       </div>
+    </FieldRow>
+  );
+}
+
+/**
+ * A button that opens the manager of uploaded icons, for users who may add
+ * or change some. Draws nothing for anyone else.
+ */
+export function LibraryField() {
+  const { t } = useTranslation();
+  const allowed = useCanManageLibrary();
+  const [open, setOpen] = useState(false);
+  if (!allowed) return null;
+  return (
+    <FieldRow
+      label={t("settings.user.library.label")}
+      description={t("settings.user.library.description")}
+    >
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setOpen(true)}
+        className="h-8 px-3 text-xs"
+      >
+        {t("custom.manageSettings")}
+      </Button>
+      {open && <ManageDialog open onClose={() => setOpen(false)} />}
     </FieldRow>
   );
 }

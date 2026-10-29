@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import {
   renderWithApp,
@@ -58,6 +59,7 @@ type Row = {
   canEdit: boolean;
 };
 
+const COLUMNS = "grid-cols-[2rem_minmax(0,1fr)_auto_auto]";
 const svgRow: Row = {
   id: SVG_ID,
   name: "Company logo",
@@ -381,6 +383,8 @@ describe("rules with an uploaded icon", () => {
     value: "prod",
     icon: `custom:${PNG_ID}`,
     color: "",
+    badge: "",
+    badgeColor: "",
     override: false,
   };
 
@@ -467,7 +471,7 @@ describe("error mapping", () => {
   });
 });
 
-describe("uploaded tab of the picker", () => {
+describe("uploaded chip of the picker", () => {
   async function renderPicker(
     rows: Row[],
     options: { permissions?: string[]; value?: string } = {},
@@ -500,7 +504,9 @@ describe("uploaded tab of the picker", () => {
   }
 
   const openTab = () =>
-    fireEvent.click(screen.getByRole("radio", { name: "Uploaded" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: locales.picker.chips.custom }),
+    );
   const pickFile = async (file: File) => {
     const input = screen.getByTestId("upload-input") as HTMLInputElement;
     await act(async () => {
@@ -515,17 +521,17 @@ describe("uploaded tab of the picker", () => {
     expect(onChange).toHaveBeenCalledWith(`custom:${PNG_ID}`);
   });
 
-  it("opens on the tab when the value is an uploaded icon", async () => {
+  it("shows uploaded icons in All, with the current one selected", async () => {
     await renderPicker([svgRow], { value: `custom:${SVG_ID}` });
+    // The upload controls belong to the Uploaded chip only.
+    expect(screen.queryByTestId("uploaded-pack")).toBeNull();
+    const tile = screen.getByRole("button", { name: "Company logo" });
+    expect(tile.getAttribute("aria-pressed")).toBe("true");
+    openTab();
     expect(screen.getByTestId("uploaded-pack")).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: "Company logo" })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
   });
 
-  it("finds uploaded icons from the other tabs by name", async () => {
+  it("finds uploaded icons from the All chip by name", async () => {
     await renderPicker([svgRow, pngRow]);
     fireEvent.change(screen.getByLabelText(locales.picker.search), {
       target: { value: "company" },
@@ -540,7 +546,7 @@ describe("uploaded tab of the picker", () => {
     expect(screen.getByText(locales.custom.empty)).toBeTruthy();
   });
 
-  it("uploads an SVG with recolor off by default, then selects it", async () => {
+  it("uploads an SVG without a monochrome option, then selects it", async () => {
     const { post, onChange, get } = await renderPicker([]);
     openTab();
     await pickFile(new File([SVG], "My Logo.svg", { type: "image/svg+xml" }));
@@ -548,12 +554,8 @@ describe("uploaded tab of the picker", () => {
       locales.custom.nameLabel,
     )) as HTMLInputElement;
     expect(name.value).toBe("My Logo");
-    const recolor = screen.getByRole("checkbox", {
-      name: locales.custom.recolor,
-    });
-    expect(recolor.getAttribute("aria-checked")).toBe("false");
-    fireEvent.click(recolor);
-    expect(recolor.getAttribute("aria-checked")).toBe("true");
+    // A color picked for the host paints the icon, so there is no option.
+    expect(screen.queryByRole("checkbox")).toBeNull();
 
     fireEvent.change(name, { target: { value: "Logo" } });
     await act(async () => {
@@ -563,7 +565,6 @@ describe("uploaded tab of the picker", () => {
       name: "Logo",
       kind: "svg",
       data: SVG,
-      tint: true,
     });
     expect(get).toHaveBeenCalledTimes(2);
     expect(onChange).toHaveBeenCalledWith(`custom:${NEW_ID}`);
@@ -572,16 +573,11 @@ describe("uploaded tab of the picker", () => {
     expect(screen.getByRole("button", { name: "Logo" })).toBeTruthy();
   });
 
-  it("sends a PNG as base64 without a prefix, recolor off", async () => {
+  it("sends a PNG as base64 without a prefix", async () => {
     const { post } = await renderPicker([]);
     openTab();
     await pickFile(new File([new Uint8Array([137, 80, 78, 71])], "pic.png"));
     await screen.findByTestId("upload-draft");
-    expect(
-      screen
-        .getByRole("checkbox", { name: locales.custom.recolor })
-        .getAttribute("aria-checked"),
-    ).toBe("false");
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: locales.custom.add }));
     });
@@ -589,7 +585,6 @@ describe("uploaded tab of the picker", () => {
       name: "pic",
       kind: "png",
       data: "iVBORw==",
-      tint: false,
     });
   });
 
@@ -638,10 +633,165 @@ describe("uploaded tab of the picker", () => {
     expect(screen.queryByText(locales.custom.manage)).toBeNull();
   });
 
+  const openManage = () =>
+    fireEvent.click(screen.getByText(locales.custom.manage));
+  const manageDialog = () => screen.getByTestId("manage-dialog");
+
+  it("opens the manager in its own dialog and closes it with Done", async () => {
+    await renderPicker([svgRow]);
+    openTab();
+    expect(screen.queryByTestId("manage-dialog")).toBeNull();
+    expect(screen.queryByTestId("manage-list")).toBeNull();
+    openManage();
+    const dialog = manageDialog();
+    expect(dialog.hasAttribute("data-host-icons-dialog")).toBe(true);
+    expect(within(dialog).getByText(locales.custom.manageTitle)).toBeTruthy();
+    expect(within(dialog).getByTestId("manage-list")).toBeTruthy();
+    // The upload button is on top of the list, with the same permission.
+    expect(within(dialog).getByText(locales.custom.upload)).toBeTruthy();
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: locales.custom.done }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+    );
+  });
+
+  it("lays out each icon as one grid row with preview, name, Save and Delete", async () => {
+    const second: Row = {
+      ...svgRow,
+      id: "55555555-5555-4555-8555-555555555555",
+      name: "Second logo",
+    };
+    await renderPicker([svgRow, second], {
+      permissions: ["host-icons.upload"],
+    });
+    openTab();
+    openManage();
+    const dialog = manageDialog();
+    const list = within(dialog).getByTestId("manage-list");
+    // The list scrolls inside a limit, not the whole dialog body.
+    expect(list.className).toContain("overflow-y-auto");
+    expect(list.className).toContain("max-h-");
+    const rows = within(list).getAllByTestId("manage-row");
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.tagName).toBe("LI");
+      expect(row.className).toContain(COLUMNS);
+      // Four cells in column order: preview, name, Save, Delete.
+      expect(row.children).toHaveLength(4);
+      const [preview, name, save, remove] = Array.from(row.children);
+      expect(
+        preview.querySelector("[data-custom-icon], img, svg"),
+      ).toBeTruthy();
+      expect(name.tagName).toBe("INPUT");
+      expect(save.textContent).toBe(locales.custom.save);
+      expect(remove.textContent).toBe(locales.custom.deleteAction);
+    }
+    // The upload draft uses the same columns: preview, name, Add, Cancel.
+    await act(async () => {
+      fireEvent.change(within(dialog).getByTestId("upload-input"), {
+        target: { files: [new File([SVG], "a.svg")] },
+      });
+    });
+    const draft = await within(dialog).findByTestId("upload-draft");
+    expect(draft.className).toContain(COLUMNS);
+    expect(draft.children).toHaveLength(4);
+  });
+
+  it("closes only the manager on Escape and keeps the picker as it was", async () => {
+    await renderPicker([svgRow, pngRow], {
+      permissions: ["host-icons.upload"],
+    });
+    openTab();
+    const search = screen.getByLabelText(
+      locales.picker.search,
+    ) as HTMLInputElement;
+    fireEvent.change(search, { target: { value: "Company" } });
+    openManage();
+    fireEvent.keyDown(manageDialog(), { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+    );
+    expect(
+      (screen.getByLabelText(locales.picker.search) as HTMLInputElement).value,
+    ).toBe("Company");
+    expect(
+      screen
+        .getByRole("button", { name: locales.picker.chips.custom })
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(screen.getByRole("button", { name: "Company logo" })).toBeTruthy();
+  });
+
+  it("shows only the icons the user may change and offers search past eight", async () => {
+    const many: Row[] = Array.from({ length: 9 }, (_, n) => ({
+      ...svgRow,
+      id: `00000000-0000-4000-8000-00000000000${n}`,
+      name: `Icon ${n}`,
+    }));
+    await renderPicker([...many, pngRow]);
+    openTab();
+    openManage();
+    const dialog = manageDialog();
+    expect(within(dialog).queryByDisplayValue("Badge photo")).toBeNull();
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(9);
+    fireEvent.change(within(dialog).getByLabelText(locales.custom.search), {
+      target: { value: "icon 3" },
+    });
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(1);
+    fireEvent.change(within(dialog).getByLabelText(locales.custom.search), {
+      target: { value: "nothing" },
+    });
+    expect(within(dialog).getByText(locales.custom.noMatch)).toBeTruthy();
+  });
+
+  it("has no search for a short list", async () => {
+    await renderPicker([svgRow]);
+    openTab();
+    openManage();
+    expect(
+      within(manageDialog()).queryByLabelText(locales.custom.search),
+    ).toBeNull();
+  });
+
+  it("uploads from the manager without selecting the icon", async () => {
+    const { post, onChange } = await renderPicker([svgRow]);
+    openTab();
+    openManage();
+    const input = within(manageDialog()).getByTestId(
+      "upload-input",
+    ) as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, {
+        target: { files: [new File([SVG], "new.svg")] },
+      });
+    });
+    await within(manageDialog()).findByTestId("upload-draft");
+    await act(async () => {
+      fireEvent.click(
+        within(manageDialog()).getByRole("button", {
+          name: locales.custom.add,
+        }),
+      );
+    });
+    expect(post).toHaveBeenCalledWith("icons", {
+      name: "new",
+      kind: "svg",
+      data: SVG,
+    });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(
+      within(manageDialog()).getByLabelText(
+        locales.custom.renameLabel.replace("{{name}}", "new"),
+      ),
+    ).toBeTruthy();
+  });
+
   it("renames an icon", async () => {
     const { patch } = await renderPicker([svgRow]);
     openTab();
-    fireEvent.click(screen.getByText(locales.custom.manage));
+    openManage();
     const input = screen.getByLabelText(
       locales.custom.renameLabel.replace("{{name}}", "Company logo"),
     );
@@ -658,10 +808,156 @@ describe("uploaded tab of the picker", () => {
     expect(library.get().icons[0].name).toBe("ACME");
   });
 
+  describe("leaving the manager", () => {
+    const OTHER_ID = "44444444-4444-4444-8444-444444444444";
+    const otherRow: Row = { ...svgRow, id: OTHER_ID, name: "Second logo" };
+    const nameField = (name: string) =>
+      screen.getByLabelText(
+        locales.custom.renameLabel.replace("{{name}}", name),
+      ) as HTMLInputElement;
+    const type = (name: string, value: string) =>
+      fireEvent.change(nameField(name), { target: { value } });
+    const done = async () => {
+      await act(async () => {
+        fireEvent.click(
+          within(manageDialog()).getByRole("button", {
+            name: locales.custom.done,
+          }),
+        );
+      });
+    };
+
+    it("saves every changed name on Done, one request per icon", async () => {
+      const { patch, rows } = await renderPicker([svgRow, otherRow]);
+      openTab();
+      openManage();
+      type("Company logo", "ACME");
+      type("Second logo", "  Globex ");
+      await done();
+      expect(patch).toHaveBeenCalledTimes(2);
+      expect(patch).toHaveBeenCalledWith(`icons/${SVG_ID}`, { name: "ACME" });
+      expect(patch).toHaveBeenCalledWith(`icons/${OTHER_ID}`, {
+        name: "Globex",
+      });
+      expect(rows.map((row) => row.name)).toEqual(["ACME", "Globex"]);
+      expect(library.get().icons.map((icon) => icon.name)).toEqual([
+        "ACME",
+        "Globex",
+      ]);
+      await waitFor(() =>
+        expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+      );
+    });
+
+    it("sends nothing and closes when no name changed", async () => {
+      const { patch } = await renderPicker([svgRow]);
+      openTab();
+      openManage();
+      type("Company logo", "Other");
+      type("Company logo", "Company logo");
+      await done();
+      expect(patch).not.toHaveBeenCalled();
+      await waitFor(() =>
+        expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+      );
+    });
+
+    it.each([
+      ["empty", ""],
+      ["too long", "x".repeat(65)],
+    ])("keeps the dialog open and marks a name that is %s", async (_, bad) => {
+      const { patch } = await renderPicker([svgRow, otherRow]);
+      openTab();
+      openManage();
+      type("Company logo", "ACME");
+      type("Second logo", bad);
+      await done();
+      // Nothing is sent while a name is invalid, not even the good one.
+      expect(patch).not.toHaveBeenCalled();
+      expect(manageDialog()).toBeTruthy();
+      expect(nameField("Second logo").getAttribute("aria-invalid")).toBe(
+        "true",
+      );
+      expect(nameField("Company logo").getAttribute("aria-invalid")).not.toBe(
+        "true",
+      );
+      expect(
+        within(manageDialog())
+          .getAllByRole("alert")
+          .map((n) => n.textContent),
+      ).toEqual([locales.custom.nameInvalid.replace("{{max}}", "64")]);
+      // Typed text is kept, and fixing the name clears the mark.
+      expect(nameField("Company logo").value).toBe("ACME");
+      type("Second logo", "Globex");
+      expect(nameField("Second logo").getAttribute("aria-invalid")).not.toBe(
+        "true",
+      );
+      await done();
+      expect(patch).toHaveBeenCalledTimes(2);
+    });
+
+    it("keeps the dialog open with the failed rows and a toast", async () => {
+      const { patch, rows } = await renderPicker([svgRow, otherRow]);
+      openTab();
+      openManage();
+      type("Company logo", "ACME");
+      type("Second logo", "Globex");
+      patch.mockImplementationOnce(async () => {
+        throw { response: { status: 409, data: { error: "x" } } };
+      });
+      await done();
+      expect(toast.error).toHaveBeenCalledTimes(1);
+      // The first icon failed and keeps what was typed; the second was saved.
+      expect(manageDialog()).toBeTruthy();
+      expect(rows.map((row) => row.name)).toEqual(["Company logo", "Globex"]);
+      expect(nameField("Company logo").value).toBe("ACME");
+      expect(nameField("Company logo").getAttribute("aria-invalid")).toBe(
+        "true",
+      );
+      expect(nameField("Globex").value).toBe("Globex");
+      // A retry sends only the row that failed.
+      patch.mockClear();
+      await done();
+      expect(patch).toHaveBeenCalledTimes(1);
+      expect(patch).toHaveBeenCalledWith(`icons/${SVG_ID}`, { name: "ACME" });
+      await waitFor(() =>
+        expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+      );
+    });
+
+    it("saves on Escape and on the close button, like Done", async () => {
+      const { patch } = await renderPicker([svgRow]);
+      openTab();
+      openManage();
+      type("Company logo", "ACME");
+      await act(async () => {
+        fireEvent.keyDown(manageDialog(), { key: "Escape" });
+      });
+      expect(patch).toHaveBeenCalledWith(`icons/${SVG_ID}`, { name: "ACME" });
+      await waitFor(() =>
+        expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+      );
+
+      openManage();
+      type("ACME", "Initech");
+      await act(async () => {
+        fireEvent.click(
+          within(manageDialog()).getByRole("button", { name: /close/i }),
+        );
+      });
+      expect(patch).toHaveBeenLastCalledWith(`icons/${SVG_ID}`, {
+        name: "Initech",
+      });
+      await waitFor(() =>
+        expect(screen.queryByTestId("manage-dialog")).toBeNull(),
+      );
+    });
+  });
+
   it("deletes an icon only after the user confirms", async () => {
     const { del } = await renderPicker([svgRow]);
     openTab();
-    fireEvent.click(screen.getByText(locales.custom.manage));
+    openManage();
     const ask = async () => {
       await act(async () => {
         fireEvent.click(

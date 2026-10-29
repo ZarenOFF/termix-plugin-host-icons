@@ -7,6 +7,7 @@ import {
   type RenderedPluginApp,
 } from "@termix-ssh/plugin-sdk/testing";
 import type { PluginManifest } from "@termix-ssh/plugin-sdk/manifest";
+import type { PluginApiClient } from "@termix-ssh/plugin-sdk/frontend";
 import {
   hostMenuItemsFor,
   paletteEntriesFor,
@@ -15,6 +16,7 @@ import {
 } from "@termix-ssh/plugin-sdk/ui";
 import * as plugin from "../../src/frontend/index";
 import { canChangeIcon } from "../../src/frontend/change-icon";
+import { library, refreshLibrary } from "../../src/frontend/library";
 import manifestJson from "../../manifest.json";
 import locales from "../../locales/en.json";
 
@@ -128,11 +130,12 @@ describe("change icon menu item", () => {
   it("opens a picker for the host with its current icon", async () => {
     await openDialog();
     expect(screen.getByText("Icon for web-1")).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: locales.icons.cloud })
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
+    // The icon shows in "Used on your hosts" and in its own group.
+    const tiles = screen.getAllByRole("button", { name: locales.icons.cloud });
+    expect(tiles.length).toBeGreaterThan(0);
+    for (const tile of tiles)
+      expect(tile.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText(locales.picker.used)).toBeTruthy();
   });
 
   it("marks its dialog so the CSS can drop the backdrop blur", async () => {
@@ -174,46 +177,15 @@ describe("change icon menu item", () => {
     expect(notifyHostsChanged).not.toHaveBeenCalled();
   });
 
-  it("hands only the color back to the default", async () => {
+  it("has no Use default controls and sends no _inherit", async () => {
     await openDialog();
-    fireEvent.click(
-      screen.getByRole("button", { name: locales.dialog.useDefaultColor }),
-    );
-    expect(screen.getByText(locales.dialog.followsDefault)).toBeTruthy();
+    expect(screen.queryByText("Use default")).toBeNull();
+    expect(screen.queryByTestId("follows-default")).toBeNull();
+    expect(screen.queryByRole("button", { name: /default/i })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: locales.icons.router }));
     fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
-    await vi.waitFor(() =>
-      expect(save).toHaveBeenCalledWith({
-        _inherit: ["color"],
-        icon: "router",
-      }),
-    );
-  });
-
-  it("hands both back to the default", async () => {
-    await openDialog();
-    fireEvent.click(
-      screen.getByRole("button", { name: locales.dialog.useDefaultIcon }),
-    );
-    fireEvent.click(
-      screen.getByRole("button", { name: locales.dialog.useDefaultColor }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
-    await vi.waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ _inherit: ["icon", "color"] }),
-    );
-  });
-
-  it("owns the icon again once a new one is picked", async () => {
-    await openDialog();
-    fireEvent.click(
-      screen.getByRole("button", { name: locales.dialog.useDefaultIcon }),
-    );
-    fireEvent.click(screen.getByRole("button", { name: locales.icons.router }));
-    fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
-    await vi.waitFor(() =>
-      expect(save).toHaveBeenCalledWith({ icon: "router" }),
-    );
+    await vi.waitFor(() => expect(save).toHaveBeenCalled());
+    expect(Object.keys(save.mock.calls[0][0])).not.toContain("_inherit");
   });
 
   it("keeps the dialog open and says so when saving fails", async () => {
@@ -228,11 +200,9 @@ describe("change icon menu item", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
-  it("closes without saving on Cancel", async () => {
+  it("closes without saving on Escape", async () => {
     await openDialog();
-    fireEvent.click(
-      screen.getByRole("button", { name: locales.dialog.cancel }),
-    );
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(save).not.toHaveBeenCalled();
   });
@@ -244,5 +214,62 @@ describe("change icon menu item", () => {
     });
     rendered = null;
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("color of an uploaded multicolor icon", () => {
+  const ICON_ID = "11111111-1111-4111-8111-111111111111";
+  const logoHost = {
+    ...web,
+    pluginSettings: {
+      "host-icons": { icon: `custom:${ICON_ID}`, color: "#3b82f6" },
+    },
+  };
+  const api = {
+    get: async () => ({
+      data: {
+        icons: [
+          {
+            id: ICON_ID,
+            name: "Logo",
+            kind: "svg",
+            data: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M1 1h22v22H1z"/></svg>',
+            tint: false,
+            canEdit: false,
+          },
+        ],
+      },
+    }),
+  } as unknown as PluginApiClient;
+
+  afterEach(() => library.reset());
+
+  it("clears the color when Own colors is chosen", async () => {
+    rendered = await renderWithApp(plugin, {
+      manifest,
+      locales,
+      hosts: [logoHost],
+      api,
+    });
+    await refreshLibrary(api);
+    rendered.renderSlot("shell.overlay");
+    render(<Menu host={logoHost} />);
+    const item = menuItems.find((entry) => entry.id === "change-icon")!;
+    act(() => item.run(logoHost as never, {} as never));
+    await screen.findByRole("dialog");
+
+    const own = () =>
+      screen.getByRole("button", { name: locales.picker.ownColors });
+    expect(own().getAttribute("aria-pressed")).toBe("false");
+    const hex = () =>
+      screen.getAllByLabelText(locales.picker.hexInput)[0] as HTMLInputElement;
+    expect(hex().value).toBe("#3b82f6");
+
+    fireEvent.click(own());
+    expect(own().getAttribute("aria-pressed")).toBe("true");
+    expect(hex().value).toBe("");
+
+    fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
+    await vi.waitFor(() => expect(save).toHaveBeenCalledWith({ color: "" }));
   });
 });

@@ -13,8 +13,8 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 - **Your own icons:** upload SVG or PNG files to a library shared with everyone, with permissions to upload and to manage (a chosen icon color paints them). The icons you upload sync to a linked desktop
 - A large icon left of each host in the Hosts list, like in MobaXterm, or a small one before or after the name (**Icon position** in your settings)
 - Defaults for a whole folder, for a user or for the whole server: hosts follow the default until they pick their own icon
-- **Change icon** in the host's right-click menu and in the command palette for a quick change, with **Use default** to follow the folder default again
-- **Automatic icons:** rules that give hosts an icon or a color by tag or by name, in a table you reorder by dragging
+- **Change icon** in the host's right-click menu and in the command palette for a quick change
+- **Automatic icons:** rules that give hosts an icon, a color or a corner badge by tag, by name or by a regular expression on the name, in a table you reorder by dragging
 - **Corner badge:** a 1 or 2 character label or a dot on the corner of the icon, with its own color, also available as a default
 - **Icon size** from 50% to 150%
 - English and Russian
@@ -37,8 +37,8 @@ To install a build by hand, see [Development](#development).
 
 - **One host:** edit the host, open the **Host Icons** section, pick an icon and, if you like, a color. Save the host.
 - **Quick change:** right-click a host in the Hosts list and choose **Change icon**.
-- **A whole folder:** set Icon and Icon color in the folder's host defaults. Every host in the folder that has no icon of its own follows it. **Use default** in the Change icon dialog sends a host back to following the default.
-- **By tag or name:** under Settings, Host Icons, add rules such as "tag prod gets a database icon". The first rule that applies wins, and a host's own icon wins over a rule unless the rule takes priority. See the [docs](docs/index.md).
+- **A whole folder:** set Icon and Icon color in the folder's host defaults. Every host in the folder that has no icon of its own follows it. **Use default** in the host editor sends a host back to following the default.
+- **By tag, name or regular expression:** under Settings, Host Icons, add rules such as "tag prod gets a database icon". The first rule that applies wins, and a host's own icon, color and badge win over a rule unless the rule takes priority. See the [docs](docs/index.md).
 - **No icon:** pick **No icon**. **Theme color** makes the icon follow the text color.
 
 ## Limitations

@@ -1,5 +1,6 @@
+import { useId, type ReactNode } from "react";
 import { useTranslation } from "@termix-ssh/plugin-sdk/frontend";
-import { Input } from "@termix-ssh/plugin-sdk/ui";
+import { Input, PluginIcon } from "@termix-ssh/plugin-sdk/ui";
 import {
   BADGE_DOT_ID,
   badgeTextId,
@@ -58,5 +59,65 @@ export function BadgeEditor({
         className="h-7 w-36 text-xs placeholder:text-muted-foreground/60"
       />
     </div>
+  );
+}
+
+/**
+ * The summary of a badge as the disclosure button says it: None, Dot or the
+ * label. A stored value that does not parse counts as none, like the list.
+ */
+export function useBadgeSummary(value: string): string {
+  const { t } = useTranslation();
+  const parsed = parseBadge(value);
+  if (parsed === null) return t("layers.badgeNone");
+  return parsed.kind === "dot" ? t("layers.badgeDot") : parsed.text;
+}
+
+/**
+ * A "Badge: <summary>" button that opens its content below with a short
+ * animation (data-host-icons-collapse in host-icons.css). Shared by the
+ * Change icon dialog and the host editor, which differ in what is inside.
+ */
+export function BadgeDisclosure({
+  summary,
+  open,
+  onToggle,
+  disabled = false,
+  children,
+}: {
+  summary: string;
+  open: boolean;
+  onToggle: () => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  const { t } = useTranslation();
+  const panelId = useId();
+  return (
+    <>
+      <button
+        type="button"
+        aria-expanded={open}
+        aria-controls={panelId}
+        disabled={disabled}
+        onClick={onToggle}
+        className="flex items-center justify-between gap-2 min-w-0 h-8 px-2 border border-border text-xs text-left transition-colors hover:border-muted-foreground disabled:opacity-50"
+      >
+        <span className="truncate">{t("dialog.badge", { summary })}</span>
+        <PluginIcon
+          name="ChevronDown"
+          aria-hidden
+          className={`size-4 shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      <div
+        id={panelId}
+        data-testid="badge-panel"
+        data-host-icons-collapse=""
+        data-open={open ? "true" : "false"}
+      >
+        <div className="flex flex-col gap-2 min-w-0 pt-2">{children}</div>
+      </div>
+    </>
   );
 }

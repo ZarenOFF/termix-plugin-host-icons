@@ -55,6 +55,8 @@ const prodRule: IconRule = {
   value: "prod",
   icon: "database",
   color: "#ff0000",
+  badge: "",
+  badgeColor: "",
   override: false,
 };
 
@@ -205,5 +207,66 @@ describe("preferences store", () => {
     expect(listener).toHaveBeenCalledTimes(1);
     preferences.set(layout([activeRules([{ ...prodRule, color: "" }])]));
     expect(listener).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("corner badge from a rule", () => {
+  const badgeRule: IconRule = {
+    ...prodRule,
+    icon: "",
+    color: "",
+    badge: "text:PR",
+    badgeColor: "#00ff00",
+  };
+
+  it("draws the badge on a host's own icon", async () => {
+    const row = await renderRows([own], { rules: [badgeRule] });
+    const layers = row(own).querySelector<HTMLElement>(
+      "[data-host-icon-layers]",
+    )!;
+    expect(layers.getAttribute("data-badge")).toBe("text:PR");
+  });
+
+  it("draws the badge on the icon another rule gives", async () => {
+    const row = await renderRows([tagged], {
+      rules: [{ ...prodRule, badge: "dot" }],
+    });
+    const layers = row(tagged).querySelector<HTMLElement>(
+      "[data-host-icon-layers]",
+    )!;
+    expect(layers.getAttribute("data-badge-kind")).toBe("dot");
+  });
+
+  it("draws nothing for a badge-only rule on a host without an icon", async () => {
+    const row = await renderRows([tagged], { rules: [badgeRule] });
+    expect(
+      row(tagged).querySelector("[data-testid=host-icon-badge]"),
+    ).toBeNull();
+  });
+
+  it("keeps the host's own badge over the rule's without override", async () => {
+    const withBadge: TestHost = {
+      ...own,
+      pluginSettings: { "host-icons": { icon: "cloud", badge: "dot" } },
+    };
+    const row = await renderRows([withBadge], { rules: [badgeRule] });
+    const layers = row(withBadge).querySelector<HTMLElement>(
+      "[data-host-icon-layers]",
+    )!;
+    expect(layers.getAttribute("data-badge")).toBe("dot");
+  });
+
+  it("replaces the host's badge with an overriding rule's", async () => {
+    const withBadge: TestHost = {
+      ...own,
+      pluginSettings: { "host-icons": { icon: "cloud", badge: "dot" } },
+    };
+    const row = await renderRows([withBadge], {
+      rules: [{ ...badgeRule, override: true }],
+    });
+    const layers = row(withBadge).querySelector<HTMLElement>(
+      "[data-host-icon-layers]",
+    )!;
+    expect(layers.getAttribute("data-badge")).toBe("text:PR");
   });
 });
