@@ -335,6 +335,32 @@ describe("badge with an uploaded icon", () => {
     ).toBeNull();
   });
 
+  it("reads the library again for an icon someone uploaded later", async () => {
+    const fake = fakeApi([]);
+    fake.get.mockResolvedValueOnce({ data: { icons: [] } });
+    fake.rows.push({ ...svgRow });
+    await renderRow(customHost(SVG_ID), fake.api);
+    await waitFor(() =>
+      expect(
+        screen
+          .getByTestId("host-icon-badge")
+          .querySelector("[data-custom-icon=mask]"),
+      ).not.toBeNull(),
+    );
+    expect(fake.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks once for an uploaded icon that is gone", async () => {
+    const fake = fakeApi([]);
+    await renderRow(customHost(SVG_ID), fake.api);
+    await waitFor(() => expect(fake.get).toHaveBeenCalledTimes(2));
+    await act(async () => {});
+    expect(fake.get).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByTestId("host-icon-badge").querySelector("svg"),
+    ).not.toBeNull();
+  });
+
   it("follows a delete without a reload", async () => {
     const fake = fakeApi([svgRow]);
     await renderRow(customHost(SVG_ID), fake.api);

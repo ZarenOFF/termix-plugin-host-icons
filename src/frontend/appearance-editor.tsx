@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "@termix-ssh/plugin-sdk/frontend";
 import { Button } from "@termix-ssh/plugin-sdk/ui";
 import { ColorPicker, IconPicker } from "./IconPicker";
@@ -46,10 +46,15 @@ export function AppearanceEditor({
   preview: ReactNode;
 }) {
   const { t } = useTranslation();
-  // The badge editor opens on a value that already has a badge.
-  const [badgeOpen, setBadgeOpen] = useState(
-    () => parseBadge(value.badge) !== null,
-  );
+  // The badge editor opens on a value that already has a badge, also when
+  // the value arrives after the editor (the host list can load late), until
+  // the user opens or closes it themselves.
+  const hasBadge = parseBadge(value.badge) !== null;
+  const [badgeOpen, setBadgeOpen] = useState(hasBadge);
+  const badgeTouched = useRef(false);
+  useEffect(() => {
+    if (hasBadge && !badgeTouched.current) setBadgeOpen(true);
+  }, [hasBadge]);
   // The badge as the section's button says it, so a closed section still
   // tells what is set.
   const badgeSummary = useBadgeSummary(value.badge);
@@ -87,7 +92,10 @@ export function AppearanceEditor({
         <BadgeDisclosure
           summary={badgeSummary}
           open={badgeOpen}
-          onToggle={() => setBadgeOpen((open) => !open)}
+          onToggle={() => {
+            badgeTouched.current = true;
+            setBadgeOpen((open) => !open);
+          }}
           disabled={disabled}
         >
           {badgeBlocked && (

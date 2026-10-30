@@ -607,6 +607,24 @@ describe("icon size field", () => {
   });
 });
 
+describe("folder icon size field", () => {
+  it("shows the folder size with its own label", async () => {
+    await renderField("folder-icon-size", { folderSize: 200 });
+    const input = screen.getByRole("spinbutton", {
+      name: locales.settings.user.folderSize.label,
+    }) as HTMLInputElement;
+    expect(input.value).toBe("200");
+  });
+
+  it("saves under its own key and allows up to 200", async () => {
+    const { setValue } = await renderField("folder-icon-size", {
+      folderSize: 400,
+    });
+    fireEvent.blur(screen.getByRole("spinbutton"));
+    expect(setValue).toHaveBeenCalledWith("folderSize", 200);
+  });
+});
+
 describe("icon picker follows a late value", () => {
   const chip = (name: keyof typeof locales.picker.chips) =>
     screen.getByRole("button", { name: locales.picker.chips[name] });

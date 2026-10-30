@@ -24,16 +24,20 @@ import { BadgeDisclosure, BadgeEditor, useBadgeSummary } from "./layers";
 import { ManageDialog, useCanManageLibrary } from "./uploaded";
 import {
   DEFAULT_SIZE,
+  FOLDER_SIZE_KEY,
+  MAX_FOLDER_SIZE,
   MAX_SIZE,
+  MIN_FOLDER_SIZE,
   MIN_SIZE,
   SIZE_KEY,
-  normalizeSize,
+  normalizePercent,
 } from "./preferences";
 
 /** Component ids, as manifest.json names them on the custom fields. */
 export const ICON_FIELD_COMPONENT = "icon-picker";
 export const COLOR_FIELD_COMPONENT = "icon-color";
 export const SIZE_FIELD_COMPONENT = "icon-size";
+export const FOLDER_SIZE_FIELD_COMPONENT = "folder-icon-size";
 export const BADGE_FIELD_COMPONENT = "icon-badge";
 export const BADGE_COLOR_FIELD_COMPONENT = "icon-badge-color";
 export const LIBRARY_FIELD_COMPONENT = "icon-library";
@@ -225,19 +229,31 @@ export function BadgeField({
   );
 }
 
+interface PercentFieldProps extends SettingsComponentProps {
+  settingKey: string;
+  /** Under settings.user: its label, description and unit. */
+  textKey: string;
+  min: number;
+  max: number;
+}
+
 /**
- * Core's number field is full width with no unit, so Icon size draws its
- * own: a narrow box with a % after it. Typing is free; leaving the box puts
- * the value back inside 50-150, which is also how it is read.
+ * Core's number field is full width with no unit, so the size settings draw
+ * their own: a narrow box with a % after it. Typing is free; leaving the box
+ * puts the value back inside min-max, which is also how it is read.
  */
-export function SizeField({
+function PercentField({
   values,
   setValue,
   running,
-}: SettingsComponentProps) {
+  settingKey,
+  textKey,
+  min,
+  max,
+}: PercentFieldProps) {
   const { t } = useTranslation();
-  const stored = values[SIZE_KEY];
-  const size = normalizeSize(stored);
+  const stored = values[settingKey];
+  const size = normalizePercent(stored, min, max);
   const [draft, setDraft] = useState(String(size));
   // While the box has focus the draft is the user's: what they typed so far
   // may be out of bounds ("8" on the way to "80") and must not be replaced.
@@ -247,45 +263,73 @@ export function SizeField({
   }, [size]);
   return (
     <FieldRow
-      label={t("settings.user.size.label")}
-      description={t("settings.user.size.description")}
+      label={t(`settings.user.${textKey}.label`)}
+      description={t(`settings.user.${textKey}.description`)}
     >
       <div className="flex items-center gap-1.5">
         <Input
           type="number"
           inputMode="numeric"
-          min={MIN_SIZE}
-          max={MAX_SIZE}
+          min={min}
+          max={max}
           step={5}
           value={draft}
           disabled={!running}
-          aria-label={t("settings.user.size.label")}
+          aria-label={t(`settings.user.${textKey}.label`)}
           onFocus={() => {
             editing.current = true;
           }}
           onChange={(event) => {
             setDraft(event.target.value);
             if (/^\d+$/.test(event.target.value))
-              setValue(SIZE_KEY, Number(event.target.value));
+              setValue(settingKey, Number(event.target.value));
           }}
           onBlur={() => {
             editing.current = false;
-            const next = /^\d+$/.test(draft) ? normalizeSize(draft) : size;
+            const next = /^\d+$/.test(draft)
+              ? normalizePercent(draft, min, max)
+              : size;
             setDraft(String(next));
             // Leave an unset or unchanged value alone, so passing through the
             // box doesn't change the form.
             const unchanged =
               next === stored ||
               (stored === undefined && next === DEFAULT_SIZE);
-            if (!unchanged) setValue(SIZE_KEY, next);
+            if (!unchanged) setValue(settingKey, next);
           }}
           className="h-8 w-20 text-xs"
         />
         <span className="text-xs text-muted-foreground">
-          {t("settings.user.size.unit")}
+          {t(`settings.user.${textKey}.unit`)}
         </span>
       </div>
     </FieldRow>
+  );
+}
+
+/** Icon size: host icons in the list, 50-150%. */
+export function SizeField(props: SettingsComponentProps) {
+  return (
+    <PercentField
+      {...props}
+      settingKey={SIZE_KEY}
+      textKey="size"
+      min={MIN_SIZE}
+      max={MAX_SIZE}
+    />
+  );
+}
+
+/** Folder icon size: the layout's folder icons, 75-200% of their own size. */
+export function FolderSizeField(props: SettingsComponentProps) {
+  return (
+    <PercentField
+      {...props}
+      settingKey={FOLDER_SIZE_KEY}
+      textKey="folderSize"
+      min={MIN_FOLDER_SIZE}
+      max={MAX_FOLDER_SIZE}
+    />
   );
 }
 

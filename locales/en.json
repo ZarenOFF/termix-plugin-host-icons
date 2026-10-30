@@ -27,6 +27,11 @@
         "label": "Indent only hosts with an icon",
         "description": "With large icons, only hosts that have one move over. Turn this off to give hosts without an icon an empty space so all names line up."
       },
+      "folderSize": {
+        "label": "Folder icon size",
+        "description": "How big folder icons are in the Hosts list, from 75% to 200% of their usual size. Works with the Classic Layout.",
+        "unit": "%"
+      },
       "rules": {
         "label": "Automatic icons",
         "description": "Give hosts an icon, color or badge by tag or name. The first rule that applies wins; turn on Priority to replace the host's own."

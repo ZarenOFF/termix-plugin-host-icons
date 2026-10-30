@@ -65,6 +65,16 @@ describe("rule matching", () => {
     expect(activeRules([{ ...broken, value: "web" }])).toHaveLength(1);
   });
 
+  it("keeps the pattern cache small while a pattern is typed", () => {
+    const first = rulePattern("^cache-0");
+    expect(rulePattern("^cache-0")).toBe(first);
+    for (let n = 1; n <= 150; n++) rulePattern(`^cache-${n}`);
+    // Compiled again after the cache started over, and still the same regex.
+    const again = rulePattern("^cache-0");
+    expect(again).not.toBe(first);
+    expect(again?.source).toBe("^cache-0");
+  });
+
   it("never matches an empty value", () => {
     expect(ruleMatches(rule({ value: "" }), host({ tags: [""] }))).toBe(false);
     expect(

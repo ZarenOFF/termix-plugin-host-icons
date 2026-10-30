@@ -1,8 +1,14 @@
 import type { Router } from "express";
 import type { PluginContext } from "@termix-ssh/plugin-sdk/backend";
-import { icons } from "./tables.js";
+import { icons, sharedIcons } from "./tables.js";
 import { registerRoutes } from "./routes.js";
 import { checkIcon, hasRoom } from "./library.js";
+import {
+  SHARED_SYNC_ENTITY,
+  eraseShared,
+  loadShared,
+  writeShared,
+} from "./shared.js";
 
 // The wire name of the synced icons. It is part of the sync protocol: records
 // on both sides match on it, so it never changes.
@@ -13,11 +19,12 @@ export const SYNC_ENTITY = "icons";
 // need a table and routes of their own.
 export async function activate(ctx: PluginContext) {
   const iconsTable = await ctx.db.define(icons);
-  registerRoutes(ctx.http.router<Router>(), ctx, iconsTable);
+  const sharedTable = await ctx.db.define(sharedIcons);
+  registerRoutes(ctx.http.router<Router>(), ctx, iconsTable, sharedTable);
 
   // A linked desktop gets the icons its user uploaded (core syncs the rows
   // whose uploadedBy is the user) and sends back the ones added there.
-  // Icons other people uploaded do not sync: they belong to someone else.
+  // Icons other people uploaded come down through SHARED_SYNC_ENTITY below.
   ctx.sync.registerEntity({
     type: SYNC_ENTITY,
     table: iconsTable,
@@ -45,6 +52,25 @@ export async function activate(ctx: PluginContext) {
         throw new Error("The icon library is full");
       }
       return { ...row, ...icon };
+    },
+  });
+
+  // Icons other people uploaded, read only: the server sends them, the
+  // desktop keeps copies in sharedTable and never pushes them back, so a host
+  // that uses a colleague's icon draws it on the desktop too.
+  ctx.sync.registerEntity({
+    type: SHARED_SYNC_ENTITY,
+    table: null,
+    readOnly: true,
+    load: async (userId) =>
+      loadShared(await ctx.db.client(), iconsTable, userId),
+    write: async (userId, row) => {
+      await writeShared(await ctx.db.client(), sharedTable, userId, row);
+      await ctx.db.persist();
+    },
+    erase: async (userId, syncId) => {
+      await eraseShared(await ctx.db.client(), sharedTable, userId, syncId);
+      await ctx.db.persist();
     },
   });
 }

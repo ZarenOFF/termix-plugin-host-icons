@@ -39,6 +39,7 @@ export function registerRoutes(
   router: Router,
   ctx: PluginContext,
   iconsTable: IconsTable,
+  sharedTable: IconsTable,
 ): void {
   const client = () => ctx.db.client<BetterSQLite3Database>();
   const actor = () => ctx.currentActor() as string;
@@ -71,7 +72,8 @@ export function registerRoutes(
    *     description: >
    *       Every signed-in user can read the library, so a shared host looks the
    *       same to everyone. canEdit says whether the caller may rename or
-   *       delete that icon.
+   *       delete that icon. On a linked desktop it also lists the copies of
+   *       icons other people uploaded to the server, which nobody may edit.
    *     tags:
    *       - Host Icons
    *     responses:
@@ -83,13 +85,24 @@ export function registerRoutes(
     const rows = (await db.select().from(iconsTable)) as IconRow[];
     const canUpload = await ctx.rbac.has("upload");
     const canManage = await ctx.rbac.has("manage");
-    const icons = rows
-      .map((row) => present(row, canUpload, canManage))
-      .sort(
-        (a, b) =>
-          a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
-          a.id.localeCompare(b.id),
-      );
+    // Copies synced down from the server for this user. Empty on a server.
+    const own = new Set(rows.map((row) => row.syncId));
+    const copies = (
+      (await db
+        .select()
+        .from(sharedTable)
+        .where(eq(sharedTable.userId, actor()))) as IconRow[]
+    )
+      .filter((row) => !own.has(row.syncId))
+      .map((row) => present(row, false, false));
+    const icons = [
+      ...rows.map((row) => present(row, canUpload, canManage)),
+      ...copies,
+    ].sort(
+      (a, b) =>
+        a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) ||
+        a.id.localeCompare(b.id),
+    );
     res.json({ icons });
   });
 

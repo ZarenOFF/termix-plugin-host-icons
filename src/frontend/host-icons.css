@@ -202,10 +202,15 @@ body:has([data-host-icons-dialog]) [data-slot="dialog-overlay"] {
   visibility: visible;
 }
 
-/* The content fades and slides in while the row grows, so the opening reads. */
+/*
+ * The content fades and slides in while the row grows, so the opening reads.
+ * It is clipped to the row, with a margin so focus rings at its edges show.
+ */
 [data-host-icons-collapse] > * {
   min-height: 0;
   overflow: hidden;
+  overflow: clip;
+  overflow-clip-margin: 0.25rem;
   opacity: 0;
   transform: translateY(-0.375rem);
   transition:
@@ -224,4 +229,19 @@ body:has([data-host-icons-dialog]) [data-slot="dialog-overlay"] {
   [data-host-icons-collapse] > * {
     transition: none;
   }
+}
+
+/*
+ * Folder icons at the user's Folder icon size, --host-icons-folder-scale of
+ * the layout's 1rem, set on the root only while it isn't 100%. The Classic
+ * Layout's folder row is a div with role button and aria-expanded, its folder
+ * icon the svg right before the name's span (the chevron before it is
+ * followed by the icon or a checkbox div). Credential folders have no role.
+ * If the markup changes, folders keep the layout's own size.
+ */
+:root[data-host-icons-folders]
+  [role="button"][aria-expanded].group\/folder
+  > svg:has(+ span) {
+  width: calc(1rem * var(--host-icons-folder-scale, 1));
+  height: calc(1rem * var(--host-icons-folder-scale, 1));
 }

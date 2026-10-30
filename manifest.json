@@ -1,7 +1,7 @@
 {
   "id": "host-icons",
   "name": "Host Icons",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Give each host in the Hosts list its own icon and color.",
   "author": {
     "name": "ZarenOFF",
@@ -23,12 +23,12 @@
   ],
   "env": [],
   "engine": {
-    "termix": ">=26.10.0",
-    "api": "^1.2"
+    "termix": ">=26.10.6",
+    "api": "^1.13"
   },
   "capabilities": ["db:own", "network:serve", "ui:surface"],
   "contributes": {
-    "syncEntities": ["icons"],
+    "syncEntities": ["icons", "sharedIcons"],
     "permissions": [
       {
         "name": "upload",
@@ -76,6 +76,12 @@
           "key": "size",
           "type": "custom",
           "component": "icon-size",
+          "default": 100
+        },
+        {
+          "key": "folderSize",
+          "type": "custom",
+          "component": "folder-icon-size",
           "default": 100
         },
         {

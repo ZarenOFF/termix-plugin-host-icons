@@ -12,9 +12,12 @@ import * as plugin from "../../src/frontend/index";
 import {
   DEFAULT_POSITION,
   BASE_PROPERTY,
+  FOLDER_ATTRIBUTE,
+  FOLDER_SCALE_PROPERTY,
   SCALE_PROPERTY,
   createPreferences,
   normalizePosition,
+  normalizeFolderSize,
   normalizeSize,
 } from "../../src/frontend/preferences";
 import manifestJson from "../../manifest.json";
@@ -278,5 +281,81 @@ describe("badge placement", () => {
     document.body.appendChild(other);
     expect(getComputedStyle(other).paddingLeft).not.toBe("36px");
     other.remove();
+  });
+});
+
+// The Classic Layout folder row, trimmed to the parts the CSS relies on.
+function ClassicFolder() {
+  return (
+    <div
+      role="button"
+      aria-expanded={false}
+      className="group/folder flex items-center gap-2"
+    >
+      <svg data-testid="chevron" />
+      <svg data-testid="folder-icon" />
+      <span>Home</span>
+    </div>
+  );
+}
+
+describe("folder icons", () => {
+  const marked = () => document.documentElement.hasAttribute(FOLDER_ATTRIBUTE);
+  const folderScale = () =>
+    document.documentElement.style.getPropertyValue(FOLDER_SCALE_PROPERTY);
+
+  async function renderFolder(extra: Record<string, unknown> = {}) {
+    await renderRows("small", [withIcon], extra);
+    render(<ClassicFolder />);
+    return {
+      icon: getComputedStyle(screen.getByTestId("folder-icon")),
+      chevron: getComputedStyle(screen.getByTestId("chevron")),
+    };
+  }
+
+  it("is a user size field at 100% by default", () => {
+    const field = manifest.contributes?.settings?.user?.find(
+      (entry) => entry.key === "folderSize",
+    );
+    expect(field).toMatchObject({
+      type: "custom",
+      component: "folder-icon-size",
+      default: 100,
+    });
+  });
+
+  it("keeps a stored value inside 75-200", () => {
+    expect(normalizeFolderSize(200)).toBe(200);
+    expect(normalizeFolderSize(10)).toBe(75);
+    expect(normalizeFolderSize(400)).toBe(200);
+    expect(normalizeFolderSize(undefined)).toBe(100);
+  });
+
+  it("leaves folder icons alone at 100%", async () => {
+    const { icon } = await renderFolder({ folderSize: 100 });
+    expect(marked()).toBe(false);
+    expect(folderScale()).toBe("");
+    expect(icon.width).toBe("auto");
+  });
+
+  it("scales only the folder icon otherwise", async () => {
+    const { icon, chevron } = await renderFolder({ folderSize: 200 });
+    expect(marked()).toBe(true);
+    expect(folderScale()).toBe("2");
+    const size = "calc(1rem * var(--host-icons-folder-scale, 1))";
+    expect(icon.width).toBe(size);
+    expect(icon.height).toBe(size);
+    expect(chevron.width).toBe("auto");
+  });
+
+  it("drops the attribute when the plugin is disabled", async () => {
+    await renderFolder({ folderSize: 150 });
+    expect(marked()).toBe(true);
+    await act(async () => {
+      await rendered!.deactivate();
+    });
+    rendered = null;
+    expect(marked()).toBe(false);
+    expect(folderScale()).toBe("");
   });
 });

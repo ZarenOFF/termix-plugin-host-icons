@@ -130,8 +130,11 @@ export function parseRules(raw: unknown): IconRule[] {
 }
 
 // Rules are matched against every host on every render, so each pattern is
-// compiled once. Null marks a pattern that does not compile.
+// compiled once. Null marks a pattern that does not compile. The editor asks
+// for every prefix while a pattern is typed, so the cache starts over when it
+// grows past what any rule list needs.
 const patterns = new Map<string, RegExp | null>();
+const MAX_PATTERNS = 100;
 
 /** The rule's regular expression, or null when it is not a valid one. */
 export function rulePattern(value: string): RegExp | null {
@@ -144,6 +147,7 @@ export function rulePattern(value: string): RegExp | null {
     } catch {
       pattern = null;
     }
+    if (patterns.size >= MAX_PATTERNS) patterns.clear();
     patterns.set(source, pattern);
   }
   return pattern;

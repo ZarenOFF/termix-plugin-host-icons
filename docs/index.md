@@ -16,6 +16,7 @@ Install Host Icons from the Plugins tab. There is nothing to set up: the host ed
 - Choose how icons show under Settings, Host Icons, Icon position: large and left of the host (the default), small before the name, or small after the name. Each user picks their own.
 - Icon size in the same place makes icons bigger or smaller, from 50% to 150%. The picker shows icons at the size the Hosts list draws them, for your position and size, so you see how a logo reads before you pick it.
 - With large icons, only hosts that have an icon move over. Turn off Indent only hosts with an icon in the same place to give the others an empty space, so all names line up.
+- Folder icon size in the same place makes folder icons in the Hosts list bigger or smaller, from 75% to 200% of their usual size, for example to match large host icons. It works with the Classic Layout; other layouts keep their own folder icons.
 
 Only people who can edit a host can change its icon. People it is shared with see the owner's icon.
 
@@ -40,7 +41,7 @@ The Uploaded chip of the picker holds a library of SVG and PNG icons. The librar
 
 Two permissions in Termix say who may do what. Upload icons (admins and users by default) adds icons and lets you rename or delete your own. Manage uploaded icons (admins by default) lets you rename or delete anyone's. Everyone who is signed in can see and use the library.
 
-On a linked Termix desktop the icons you uploaded sync along with your hosts, in both directions: an icon added on the desktop reaches the server, if you may upload icons there. Icons other people uploaded do not sync, because Termix syncs each user's own data, so a host that uses someone else's icon shows the fallback icon on the desktop while it is offline.
+On a linked Termix desktop the icons you uploaded sync along with your hosts, in both directions: an icon added on the desktop reaches the server, if you may upload icons there. Icons other people uploaded sync down as read only copies, so every host draws the same icon on the desktop as on the server, offline too. Renaming or deleting them is done in the server's library; the desktop picks the change up on its next sync.
 
 Limits: an SVG may be 100 KB after cleaning and a PNG 256 KB and 512 by 512 pixels at most. A name has 1 to 64 characters. The library holds up to 500 icons and 10 MB in all. SVG files are cleaned when you upload them: scripts, styles, images and links to other files are removed, so an icon that relies on them may look different. PNG files are shown as they are.
 

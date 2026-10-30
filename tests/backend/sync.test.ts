@@ -33,6 +33,10 @@ function entity() {
   return registered.syncEntities[0]!;
 }
 
+function shared() {
+  return registered.syncEntities.find((e) => e.type === "sharedIcons")!;
+}
+
 const resolveId = async () => null;
 const wire = (extra: Record<string, unknown> = {}) => ({
   syncId: "a",
@@ -47,6 +51,11 @@ const incoming = (row: Record<string, unknown>) =>
 
 beforeEach(async () => {
   db = await createTestDb(pluginDir);
+  for (const user of ["alice", "bob"]) {
+    db.sqlite
+      .prepare("INSERT INTO users (id, username) VALUES (?, ?)")
+      .run(user, user);
+  }
   registered = await setup();
 });
 
@@ -54,11 +63,17 @@ afterEach(() => db.close());
 
 describe("sync registration", () => {
   it("is declared in the manifest under the same name", () => {
-    expect(manifest.contributes?.syncEntities).toEqual(["icons"]);
+    expect(manifest.contributes?.syncEntities).toEqual([
+      "icons",
+      "sharedIcons",
+    ]);
+    expect(registered.syncEntities.map((e) => e.type)).toEqual([
+      "icons",
+      "sharedIcons",
+    ]);
   });
 
-  it("registers one entity owned by the uploader", () => {
-    expect(registered.syncEntities).toHaveLength(1);
+  it("registers the own icons owned by the uploader", () => {
     expect(entity()).toMatchObject({
       type: "icons",
       userColumn: "uploadedBy",
@@ -147,5 +162,120 @@ describe("sync deserialize", () => {
       .run("x".repeat(MAX_TOTAL_BYTES - 10));
     await expect(incoming(wire({ syncId: "new" }))).rejects.toThrow(/full/);
     await expect(incoming(wire({ syncId: "big" }))).resolves.toBeTruthy();
+  });
+});
+
+describe("shared icons", () => {
+  const stored = (syncId: string, uploadedBy: string, extra = "") =>
+    db.sqlite
+      .prepare(
+        `INSERT INTO p_host_icons_icons (sync_id, name, kind, data, tint, uploaded_by) VALUES (?, ?, 'svg', ?, ${extra === "tint" ? 1 : 0}, ?)`,
+      )
+      .run(syncId, `Icon ${syncId}`, SVG, uploadedBy);
+  const copies = () =>
+    db.sqlite
+      .prepare(
+        "SELECT user_id, sync_id, name, kind, data, tint FROM p_host_icons_shared_icons ORDER BY user_id, sync_id",
+      )
+      .all();
+  const write = (userId: string, row: Record<string, unknown>) =>
+    shared().write!(userId, row);
+
+  it("is a read only entity with no table of its own", () => {
+    expect(shared()).toMatchObject({ table: null, readOnly: true });
+    expect(shared().load).toBeTypeOf("function");
+    expect(shared().write).toBeTypeOf("function");
+    expect(shared().erase).toBeTypeOf("function");
+  });
+
+  it("loads the icons other people uploaded, without the uploader", async () => {
+    stored("mine", "alice");
+    stored("theirs", "bob", "tint");
+    const rows = await shared().load!("alice");
+    expect(rows).toEqual([
+      {
+        syncId: "theirs",
+        name: "Icon theirs",
+        kind: "svg",
+        data: SVG,
+        tint: true,
+      },
+    ]);
+    expect((await shared().load!("bob")).map((r) => r.syncId)).toEqual([
+      "mine",
+    ]);
+  });
+
+  it("keeps a sanitized copy for the user and replaces it on change", async () => {
+    await write(
+      "alice",
+      wire({
+        syncId: "b1",
+        data: SVG.replace("<path", "<script>x</script><path"),
+        tint: 1,
+      }),
+    );
+    expect(copies()).toEqual([
+      {
+        user_id: "alice",
+        sync_id: "b1",
+        name: "Logo",
+        kind: "svg",
+        data: SVG,
+        tint: 1,
+      },
+    ]);
+    await write("alice", wire({ syncId: "b1", name: "Renamed", tint: false }));
+    expect(copies()).toMatchObject([
+      { sync_id: "b1", name: "Renamed", tint: 0 },
+    ]);
+  });
+
+  it("stores one copy when two writes of the same icon race", async () => {
+    await Promise.all([
+      write("alice", wire({ syncId: "b1", name: "First" })),
+      write("alice", wire({ syncId: "b1", name: "Second" })),
+    ]);
+    expect(copies()).toHaveLength(1);
+  });
+
+  it("keeps copies apart per user and erases only the one asked for", async () => {
+    await write("alice", wire({ syncId: "b1" }));
+    await write("bob", wire({ syncId: "b1" }));
+    await write("alice", wire({ syncId: "b2" }));
+    await shared().erase!("alice", "b1");
+    expect(copies().map((r: any) => `${r.user_id}:${r.sync_id}`)).toEqual([
+      "alice:b2",
+      "bob:b1",
+    ]);
+  });
+
+  it("persists every write and erase", async () => {
+    const before = db.persisted;
+    await write("alice", wire({ syncId: "b1" }));
+    await shared().erase!("alice", "b1");
+    expect(db.persisted).toBe(before + 2);
+  });
+
+  it("rejects what the upload route rejects and stores nothing", async () => {
+    for (const row of [
+      wire({ syncId: "" }),
+      wire({ syncId: 7 }),
+      wire({ name: "" }),
+      wire({ kind: "gif" }),
+      wire({ data: "<html/>" }),
+    ]) {
+      await expect(write("alice", row)).rejects.toThrow();
+    }
+    expect(copies()).toEqual([]);
+  });
+
+  it("does not count copies against the library limits", async () => {
+    await write("alice", wire({ syncId: "b1" }));
+    const insert = db.sqlite.prepare(
+      "INSERT INTO p_host_icons_icons (sync_id, name, kind, data, uploaded_by) VALUES (?, ?, 'svg', ?, 'alice')",
+    );
+    for (let i = 0; i < MAX_ICONS - 1; i++) insert.run(`s${i}`, `i${i}`, SVG);
+    await expect(incoming(wire({ syncId: "new" }))).resolves.toBeTruthy();
   });
 });

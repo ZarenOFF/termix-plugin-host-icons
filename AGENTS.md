@@ -62,7 +62,7 @@ aren't obvious from the code, and anything that has bitten you before.
 
 - What it does: lets each host have an icon and a color, shown next to its name in the Hosts list.
 - Mostly frontend. Capabilities: `ui:surface`, `db:own`, `network:serve`. The backend only serves the shared
-  library of uploaded icons (see "Uploaded icons"); everything else is frontend.
+  library of uploaded icons and syncs it (see "Uploaded icons" and "Sync"); everything else is frontend.
 - Storage: four host settings, `icon` (an id from `HOST_ICONS` in `src/frontend/icons.ts`) and `color`
   (`#rrggbb` or empty for the theme color), plus `badge` and `badgeColor` (see "Corner badge"). All are `custom` fields, so core stores whatever it is sent:
   `resolveHostIcon` treats an unknown id as `FALLBACK_ICON_ID` and an invalid color as the theme color.
@@ -115,6 +115,14 @@ aren't obvious from the code, and anything that has bitten you before.
   for the position, `BASE_SIZE` in `preferences.tsx`, which must match the CSS), and `host-icons.css` sizes children
   of `data-host-icons-actual` and the tiles (`data-host-icons-tile`) from it. Picker grids are `data-host-icons-grid`,
   8 columns at most and fewer when the tiles don't fit (the rules popover is narrow), not `grid-cols-8`.
+- Folder icons: the user setting `folderSize` (`custom`, component `folder-icon-size`, 75-200%, default 100; the same
+  `PercentField` as Icon size in `settings.tsx`) is a percent of Classic Layout's own folder icon (`size-4`, 1rem), not
+  tied to the host icon size. While it isn't 100 the overlay sets `--host-icons-folder-scale` and `data-host-icons-folders`
+  on the root, and `host-icons.css` sizes the folder icon from them; at 100 nothing is set, so folders stay the layout's.
+  Folders are core's, no plugin hook, so it is CSS only, matched on the markup of `FolderItem` in Plugin-Classic-Layout:
+  `[role="button"][aria-expanded].group/folder > svg:has(+ span)` (the chevron is followed by the icon or a checkbox
+  div, never a span; credential folder rows have no role). If it stops matching, folders keep 16px. It replaced a short
+  lived "match host icons" checkbox: the user wanted their own number.
 - Icon position is a user setting read once by a component in the `shell.overlay` slot
   (`src/frontend/preferences.tsx`), which also works out whether any host has an icon, into a store the
   badges subscribe to. Per-row `useSettings` would be one request per host.
@@ -189,7 +197,8 @@ aren't obvious from the code, and anything that has bitten you before.
   (`insertWithinLimits`) and deletes the new row by its syncId when over (409). Sync cannot: core does the insert, so a
   racing push may pass the caps by a row. The frontend loads the library into a store (`library.ts`) in the same
   `shell.overlay` preferences component; before it loads a `custom:` id draws an empty slot, after it an unknown id
-  draws the fallback. `HostIcon` draws them as an `<img>` with a data: URL or, tinted, a span with a CSS mask in
+  draws the fallback. An unknown `custom:` id on a host or rule (someone else uploaded it after the load) reads the
+  library again, once per id (`askedFor`), so a deleted icon does not loop. `HostIcon` draws them as an `<img>` with a data: URL or, tinted, a span with a CSS mask in
   `currentColor`, marked `data-custom-icon`. A host color always tints; without one only an icon with `tint` is tinted, in the
   theme color, so a multicolor file keeps its colors. Since 0.5.0 the upload form has no Monochrome option and sends no
   `tint` (false), because a host color paints any upload; the column, the API field and sync keep it for icons uploaded
@@ -203,8 +212,13 @@ aren't obvious from the code, and anything that has bitten you before.
   `contributes.syncEntities`. Core needs an auto increment `id` and a `syncId` column, so the table has both and the
   public icon id everywhere (API `id`, `custom:<uuid>` in host settings, PATCH and DELETE paths) is the `syncId`; the
   numeric `id` never leaves the server. `uploadedBy` is the sync owner column, and core syncs only the rows whose owner is
-  the user, so only your own uploads reach your linked desktop, and icons other people uploaded don't: a host that uses one
-  shows the fallback on the desktop while it is offline. Core checks `permissions.create` as given, so it is the full name
+  the user, so `icons` carries only your own uploads. Other people's come down through a second, read only entity
+  `sharedIcons` (`src/backend/shared.ts`, Termix 26.10.6+ / plugin API 1.13, which is why `engine` asks for them):
+  `table: null`, `load(userId)` on the server returns every icon not uploaded by that user (no `uploadedBy` on the wire),
+  `write`/`erase` on the desktop keep copies in the table `shared_icons` (keyed by `userId` + `syncId`, `refUser`, checked
+  with `checkIcon` like an upload, outside the 500 icon / 10 MB caps since the server already bounds them). GET lists the
+  caller's copies after the own rows, with `canEdit: false`, skipping a syncId the `icons` table has; PATCH and DELETE
+  only look in `icons`, so a copy answers 404. The wire name `sharedIcons` never changes either. Core checks `permissions.create` as given, so it is the full name
   `host-icons.upload`; changes and deletes only touch the pusher's own rows and need no permission. `deserialize` runs on
   every inbound row and runs `checkIcon` from `src/backend/library.ts`, the same check as the upload route (name, kind,
   tint, SVG sanitizing, PNG header, size), stores the sanitized output and throws to reject the row. It also applies the

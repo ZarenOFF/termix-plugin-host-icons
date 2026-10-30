@@ -27,6 +27,8 @@ import {
   IconField,
   SIZE_FIELD_COMPONENT,
   SizeField,
+  FOLDER_SIZE_FIELD_COMPONENT,
+  FolderSizeField,
 } from "./settings";
 import { HELP_FIELD_COMPONENT, HelpField } from "./help";
 
@@ -39,6 +41,7 @@ export function activate(app: TermixApp): void {
   app.registerSettingsComponent(BADGE_COLOR_FIELD_COMPONENT, BadgeColorField);
   app.registerSettingsComponent(RULES_FIELD_COMPONENT, RulesField);
   app.registerSettingsComponent(SIZE_FIELD_COMPONENT, SizeField);
+  app.registerSettingsComponent(FOLDER_SIZE_FIELD_COMPONENT, FolderSizeField);
   app.registerSettingsComponent(LIBRARY_FIELD_COMPONENT, LibraryField);
   app.registerSettingsComponent(HELP_FIELD_COMPONENT, HelpField);
 

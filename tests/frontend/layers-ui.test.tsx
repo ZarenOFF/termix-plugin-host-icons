@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import {
@@ -10,6 +11,10 @@ import {
   useHostContextMenuItems,
 } from "@termix-ssh/plugin-sdk/ui";
 import * as plugin from "../../src/frontend/index";
+import {
+  AppearanceEditor,
+  type Appearance,
+} from "../../src/frontend/appearance-editor";
 import manifestJson from "../../manifest.json";
 import locales from "../../locales/en.json";
 import ru from "../../locales/translated/ru_RU.json";
@@ -119,6 +124,47 @@ describe("layers in the change icon dialog", () => {
       locales.dialog.badge.replace("{{summary}}", locales.layers.badgeDot),
     );
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  it("opens for a badge that arrives late, until the user toggles it", async () => {
+    // The editor is only mounted by the host, so a test plugin registers a
+    // wrapper that owns the value and hands its setter back to the test.
+    const empty: Appearance = {
+      icon: "",
+      color: "",
+      badge: "",
+      badgeColor: "",
+    };
+    let setValue: (next: Appearance) => void = () => {};
+    function Harness() {
+      const [value, set] = useState(empty);
+      setValue = set;
+      return (
+        <AppearanceEditor
+          value={value}
+          colorIcon={null}
+          preview={null}
+          onChange={() => {}}
+          onSave={() => {}}
+        />
+      );
+    }
+    rendered = await renderWithApp(
+      {
+        activate: (app) => {
+          app.registerSettingsComponent("harness", Harness);
+        },
+      },
+      { manifest, locales },
+    );
+    rendered.renderSettingsComponent("harness", {});
+    const expanded = () => badgeToggle().getAttribute("aria-expanded");
+    expect(expanded()).toBe("false");
+    act(() => setValue({ ...empty, icon: "server", badge: "dot" }));
+    expect(expanded()).toBe("true");
+    fireEvent.click(badgeToggle());
+    act(() => setValue({ ...empty, icon: "server", badge: "text:P" }));
+    expect(expanded()).toBe("false");
   });
 
   it("stacks preview, color, badge and a footer with only Save", async () => {

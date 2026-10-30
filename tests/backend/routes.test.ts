@@ -646,6 +646,49 @@ describe("shared icons outlive their uploader", () => {
   });
 });
 
+describe("copies synced from the server", () => {
+  const B1 = "11111111-1111-4111-8111-111111111111";
+  const copy = (userId: string, syncId: string, name: string) =>
+    db.sqlite
+      .prepare(
+        "INSERT INTO p_host_icons_shared_icons (user_id, sync_id, name, kind, data, tint) VALUES (?, ?, ?, 'svg', ?, 1)",
+      )
+      .run(userId, syncId, name, SVG);
+
+  it("lists the caller's copies with the library, read only", async () => {
+    const alice = await serve("alice", ADMIN);
+    await upload(alice, "Own");
+    copy("alice", B1, "Bob's");
+    copy("bob", "22222222-2222-4222-8222-222222222222", "Not for alice");
+    const list = await alice("GET", "/icons");
+    expect(
+      list.body.icons.map((icon: any) => [icon.name, icon.canEdit]),
+    ).toEqual([
+      ["Bob's", false],
+      ["Own", true],
+    ]);
+    expect(list.body.icons[0]).toMatchObject({ id: B1, tint: true });
+  });
+
+  it("lists an icon once when it is also in the library", async () => {
+    const alice = await serve("alice", USER);
+    const { id } = await upload(alice, "Own");
+    copy("alice", id, "Copy");
+    const list = await alice("GET", "/icons");
+    expect(list.body.icons.map((icon: any) => icon.name)).toEqual(["Own"]);
+  });
+
+  it("can't change or delete a copy", async () => {
+    const alice = await serve("alice", ADMIN);
+    copy("alice", B1, "Bob's");
+    expect((await alice("PATCH", `/icons/${B1}`, { name: "x" })).status).toBe(
+      404,
+    );
+    expect((await alice("DELETE", `/icons/${B1}`)).status).toBe(404);
+    expect((await alice("GET", "/icons")).body.icons[0].name).toBe("Bob's");
+  });
+});
+
 describe("lifecycle", () => {
   it("works again after it is disabled and enabled", async () => {
     const first = await serve("alice", USER);

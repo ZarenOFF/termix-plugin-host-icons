@@ -179,7 +179,9 @@ function ChangeIconDialog({
   };
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
+    // Escape and the close button wait for a save in flight: closing then
+    // would lose the picks if the save fails.
+    <Dialog open onOpenChange={(open) => !open && !saving && onClose()}>
       <DialogContent className="sm:max-w-lg" data-host-icons-dialog="">
         <DialogHeader>
           <DialogTitle>

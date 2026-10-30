@@ -200,6 +200,24 @@ describe("change icon menu item", () => {
     expect(screen.getByRole("dialog")).toBeTruthy();
   });
 
+  it("stays open on Escape while a save is in flight", async () => {
+    let finish: () => void = () => {};
+    save.mockReturnValueOnce(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    await openDialog();
+    fireEvent.click(screen.getByRole("button", { name: locales.icons.router }));
+    fireEvent.click(screen.getByRole("button", { name: locales.dialog.save }));
+    await vi.waitFor(() => expect(save).toHaveBeenCalled());
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await act(async () => finish());
+    await vi.waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(toast.success).toHaveBeenCalledWith(locales.dialog.saved);
+  });
+
   it("closes without saving on Escape", async () => {
     await openDialog();
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });

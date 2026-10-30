@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.6.0
+
+### Added
+
+- Folder icon size setting: folder icons in the Hosts list from 75% to 200% (Classic Layout)
+- Icons uploaded by other people sync to the Termix desktop app, so shared hosts show the same icons there
+
+### Changed
+
+- Needs Termix 26.10.6 or newer
+
+### Fixed
+
+- An icon another user uploaded and gave to a shared host shows without a page reload, instead of the fallback icon
+- The Change icon dialog stays open while it is saving
+- The Badge section opens for a host's badge that loads late
+- Focus rings in the Badge section are no longer cut off
+
 ## 0.5.0
 
 ### Added

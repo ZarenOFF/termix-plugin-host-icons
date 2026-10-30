@@ -2,6 +2,7 @@ import {
   boolean,
   defineTable,
   id,
+  refUser,
   text,
   timestamp,
   varchar,
@@ -42,5 +43,32 @@ export const icons = defineTable(
   },
 );
 
+// Stored as p_host_icons_shared_icons. On a linked desktop: copies of the
+// icons other people uploaded to the server, which the sharedIcons sync entity
+// writes and erases. Never edited here and never pushed back. Empty on a
+// server. userId is the desktop user the copy was synced for.
+export const sharedIcons = defineTable(
+  "shared_icons",
+  {
+    id: id(),
+    userId: refUser().notNull(),
+    // The icon's syncId on the server, so custom:<syncId> finds the copy.
+    syncId: varchar(36).notNull(),
+    name: varchar(64).notNull(),
+    kind: varchar(8).notNull(),
+    data: text().notNull(),
+    tint: boolean().notNull().default(false),
+  },
+  {
+    indexes: [
+      {
+        name: "idx_p_host_icons_shared_icons_user_sync_id",
+        columns: ["userId", "syncId"],
+        unique: true,
+      },
+    ],
+  },
+);
+
 // termix-plugin migrations reads this list.
-export const tables = [icons];
+export const tables = [icons, sharedIcons];

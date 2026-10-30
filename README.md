@@ -10,13 +10,13 @@ A [Termix](https://github.com/Termix-SSH/Termix) plugin that gives each host in 
 
 - An **Icon** and an **Icon color** field in the host editor, with a searchable picker of two packs: about 80 general icons (servers, storage, network gear, devices, security, development) and about 150 monochrome brand logos (Linux distributions, Proxmox, Docker, Kubernetes, databases, routers, NAS and more)
 - **Text icons:** a label of up to 4 characters, such as DB or K8S, as a frame, a plate or plain text
-- **Your own icons:** upload SVG or PNG files to a library shared with everyone, with permissions to upload and to manage (a chosen icon color paints them). The icons you upload sync to a linked desktop
+- **Your own icons:** upload SVG or PNG files to a library shared with everyone, with permissions to upload and to manage (a chosen icon color paints them). The whole library syncs to a linked desktop: your own icons both ways, other people's as read only copies
 - A large icon left of each host in the Hosts list, like in MobaXterm, or a small one before or after the name (**Icon position** in your settings)
 - Defaults for a whole folder, for a user or for the whole server: hosts follow the default until they pick their own icon
 - **Change icon** in the host's right-click menu and in the command palette for a quick change
 - **Automatic icons:** rules that give hosts an icon, a color or a corner badge by tag, by name or by a regular expression on the name, in a table you reorder by dragging
 - **Corner badge:** a 1 or 2 character label or a dot on the corner of the icon, with its own color, also available as a default
-- **Icon size** from 50% to 150%
+- **Icon size** from 50% to 150%, and a separate size for folder icons
 - English and Russian
 
 <p align="center">
@@ -69,7 +69,7 @@ npm run build
 npm run pack        # writes host-icons-<version>.tmxplug
 ```
 
-To try it on a Termix server (26.10 or newer) you are an admin on, turn on **Plugin developer mode** under **Settings**, **General**, make an API key under **Settings**, **API keys**, then run:
+To try it on a Termix server (26.10.6 or newer) you are an admin on, turn on **Plugin developer mode** under **Settings**, **General**, make an API key under **Settings**, **API keys**, then run:
 
 ```bash
 npx termix-plugin dev --server http://localhost:30001 --key tmx_your_key

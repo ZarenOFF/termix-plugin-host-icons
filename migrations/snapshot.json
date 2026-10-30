@@ -52,6 +52,54 @@
           "unique": true
         }
       ]
+    },
+    "shared_icons": {
+      "columns": {
+        "id": {
+          "type": "id",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "userId": {
+          "type": "refUser",
+          "length": 255,
+          "notNull": true
+        },
+        "syncId": {
+          "type": "varchar",
+          "length": 36,
+          "notNull": true
+        },
+        "name": {
+          "type": "varchar",
+          "length": 64,
+          "notNull": true
+        },
+        "kind": {
+          "type": "varchar",
+          "length": 8,
+          "notNull": true
+        },
+        "data": {
+          "type": "text",
+          "notNull": true
+        },
+        "tint": {
+          "type": "boolean",
+          "notNull": true,
+          "defaultValue": false
+        }
+      },
+      "indexes": [
+        {
+          "name": "idx_p_host_icons_shared_icons_user_sync_id",
+          "columns": [
+            "userId",
+            "syncId"
+          ],
+          "unique": true
+        }
+      ]
     }
   }
 }
